@@ -1,0 +1,20 @@
+[
+  {
+    "id": "concentration-trainer",
+    "name": "Concentration Trainer",
+    "path": "concentrationtrainer/",
+    "verb": "Chemculate Concentrations",
+    "description": "Convert fluently between molarity, molality, mass %, ppm, and mole fraction — 20 unit pairs, with guided Learn and Check modes.",
+    "accent": "teal",
+    "status": "live"
+  },
+  {
+    "id": "stoichiomathics",
+    "name": "Stoichiomathics",
+    "path": "stoichiomathics/",
+    "verb": "Chemculate Limiting Reactants",
+    "description": "Work through limiting reactant problems step by step — strategy, calculation, and a verified answer.",
+    "accent": "gold",
+    "status": "live"
+  }
+]
