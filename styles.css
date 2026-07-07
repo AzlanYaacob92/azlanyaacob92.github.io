@@ -82,6 +82,12 @@
 [data-theme="dark"] .hero-lead { color: var(--ink); }
 [data-theme="dark"] .btn--primary { color: #06231f; }
 [data-theme="dark"] .back-link:hover { color: #7af2e4; }
+[data-theme="dark"] .choice-card--teal { box-shadow: var(--shadow), 0 0 18px rgba(45, 212, 191, .28); }
+[data-theme="dark"] .choice-card--teal:hover { box-shadow: 0 10px 30px rgba(19, 78, 74, .12), 0 0 32px rgba(45, 212, 191, .55); }
+[data-theme="dark"] .choice-card--gold,
+[data-theme="dark"] .choice-card--amber { box-shadow: var(--shadow), 0 0 18px rgba(245, 185, 66, .28); }
+[data-theme="dark"] .choice-card--gold:hover,
+[data-theme="dark"] .choice-card--amber:hover { box-shadow: 0 10px 30px rgba(19, 78, 74, .12), 0 0 32px rgba(245, 185, 66, .55); }
 
 * { box-sizing: border-box; }
 
