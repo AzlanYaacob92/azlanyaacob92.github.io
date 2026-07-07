@@ -78,7 +78,8 @@
 }
 
 [data-theme="dark"] .site-title,
-[data-theme="dark"] .choice-verb { color: var(--ink); }
+[data-theme="dark"] .choice-verb,
+[data-theme="dark"] .hero-lead { color: var(--ink); }
 [data-theme="dark"] .btn--primary { color: #06231f; }
 [data-theme="dark"] .back-link:hover { color: #7af2e4; }
 
