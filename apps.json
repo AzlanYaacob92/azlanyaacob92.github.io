@@ -4,7 +4,7 @@
     "name": "Concentration Trainer",
     "path": "concentrationtrainer/",
     "verb": "Chemculate Concentrations",
-    "description": "Convert fluently between molarity, molality, mass %, ppm, and mole fraction — 20 unit pairs, with guided Learn and Check modes.",
+    "description": "Convert fluently between molarity, molality, % w/w, % v/v, and mole fraction — 20 unit pairs, with guided Learn and Check modes.",
     "accent": "teal",
     "status": "live"
   },
