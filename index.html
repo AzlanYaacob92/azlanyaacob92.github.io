@@ -29,15 +29,25 @@
 
 <header class="site-header">
   <span class="eyebrow">Chemistry Learning Suite</span>
-  <h1 class="site-title">Chemculator</h1>
+  <h1 class="site-title">
+    <img src="logo-light.svg" alt="Chemculator" class="site-logo site-logo--light">
+    <img src="logo-dark.svg" alt="Chemculator" class="site-logo site-logo--dark">
+  </h1>
 </header>
 
 <main>
-  <p class="hero-lead anim-hero-in">Pick what you want to chemculate.</p>
+  <div id="intro" class="intro">
+    <p class="intro-title" id="intro-title"></p>
+    <p class="intro-subtitle" id="intro-subtitle"></p>
+  </div>
 
-  <div id="app-grid" class="choice-grid" aria-live="polite">
-    <!-- Cards are rendered here by app.js from apps.json -->
-    <p class="loading-note">Loading tools…</p>
+  <div id="main-content" hidden>
+    <p class="hero-lead anim-hero-in">Pick what you want to chemculate.</p>
+
+    <div id="app-grid" class="choice-grid" aria-live="polite">
+      <!-- Cards are rendered here by app.js from apps.json -->
+      <p class="loading-note">Loading tools…</p>
+    </div>
   </div>
 </main>
 
