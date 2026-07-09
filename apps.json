@@ -16,5 +16,14 @@
     "description": "Work through limiting reactant problems step by step — strategy, calculation, and a verified answer.",
     "accent": "gold",
     "status": "live"
+  },
+  {
+    "id": "yieldcalculator",
+    "name": "Chemculate Yields",
+    "path": "yieldcalculator/",
+    "verb": "Chemculate Yields",
+    "description": "Once you know the limiting reactant, find how much product forms and how much excess is left over — in grams, moles, gas volume, or concentration.",
+    "accent": "lilac",
+    "status": "live"
   }
 ]
