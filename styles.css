@@ -303,7 +303,9 @@ main { max-width: 900px; margin: 0 auto; padding: 8px 24px 0; }
 .choice-desc { color: var(--muted); font-size: .95rem; font-family: var(--display); }
 
 /* ---------- back link ---------- */
-.back-link {
+.back-link,
+.back-link:link,
+.back-link:visited {
   background: none; border: none; cursor: pointer;
   color: var(--teal-700); font-size: .9rem; font-weight: 600;
   font-family: var(--body);
