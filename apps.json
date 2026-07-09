@@ -2,7 +2,7 @@
   {
     "id": "concentration-trainer",
     "name": "Concentration Trainer",
-    "path": "https://chemculateconcentration.netlify.app/",
+    "path": "concentrationtrainer/",
     "verb": "Chemculate Concentrations",
     "description": "Convert fluently between molarity, molality, % w/w, % v/v, and mole fraction — 20 unit pairs, with guided Learn and Check modes.",
     "accent": "teal",
@@ -11,7 +11,7 @@
   {
     "id": "stoichiomathics",
     "name": "Stoichiomathics",
-    "path": "https://stoichiomathics.netlify.app/",
+    "path": "stoichiomathics/",
     "verb": "Chemculate Limiting Reactants",
     "description": "Work through limiting reactant problems step by step — strategy, calculation, and a verified answer.",
     "accent": "gold",
@@ -20,7 +20,7 @@
   {
     "id": "yieldcalculator",
     "name": "Chemculate Yields",
-    "path": "https://yieldchemculator.netlify.app/",
+    "path": "yieldcalculator/",
     "verb": "Chemculate Yields",
     "description": "Once you know the limiting reactant, find how much product forms and how much excess is left over — in grams, moles, gas volume, or concentration.",
     "accent": "lilac",
