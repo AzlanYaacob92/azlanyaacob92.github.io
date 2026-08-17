@@ -22,8 +22,8 @@
     "name": "Chemculate Yields",
     "path": "yieldcalculator/",
     "verb": "Chemculate Yields",
-    "description": "Once you know the limiting reactant, find how much product forms and how much excess is left over — in grams, moles, gas volume, or concentration.",
+    "description": "Find theoretical, actual, or percentage yield from a balanced equation — in grams, moles, or gas volume. The limiting reactant is worked out for you.",
     "accent": "lilac",
-    "status": "coming-soon"
+    "status": "live"
   }
 ]

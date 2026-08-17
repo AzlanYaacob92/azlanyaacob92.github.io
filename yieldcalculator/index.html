@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chemculate Yields</title>
+<meta name="description" content="Work out theoretical yield, actual yield, or percentage yield from a balanced equation — in grams, moles, or gas volume.">
+<!-- Inline SVG favicon: no extra request, no file to lose. -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='26'%3E%E2%9A%97%EF%B8%8F%3C/text%3E%3C/svg%3E">
+  <script>
+    // Apply the saved theme before styles paint, so there is no flash of the
+    // wrong theme. Shares the 'theme' key with the rest of the Chemculator
+    // suite, so the choice carries across apps.
+    (function () {
+      try {
+        var saved = localStorage.getItem('theme');
+        var theme = saved || (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) { /* localStorage unavailable — default light styles apply */ }
+    })();
+  </script>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Switch to dark mode" aria-pressed="false">
+    <span id="theme-toggle-icon" aria-hidden="true">🌙</span>
+  </button>
+
+  <header class="site-header">
+    <span class="eyebrow">Stoichiometry</span>
+    <h1 class="site-title">Chemculate Yields</h1>
+  </header>
+
+  <main>
+    <button class="back-link" id="back-link" type="button" hidden>← Back to start</button>
+
+    <div class="wizard-stage">
+
+      <!-- ============ CARD 0 · LANDING ============ -->
+      <div class="wizard-card" id="card-landing">
+        <div class="landing-content" id="landing-content">
+         <a class="back-link" href="https://azlanyaacob92.github.io/">← Chemculator home</a>
+          <p class="hero-lead" id="hero-lead">I want to…</p>
+          <div class="choice-grid choice-grid--two">
+            <button class="choice-card choice-card--teal" data-choose="learn" type="button">
+              <span class="choice-verb">Learn</span>
+              <span class="choice-desc">Walk me through the yield calculation, one step at a time — the thinking first, then the numbers.</span>
+            </button>
+            <button class="choice-card choice-card--gold" data-choose="verify" type="button">
+              <span class="choice-verb">Verify my answer</span>
+              <span class="choice-desc">I have already worked it out. Show me the key figures so I can compare.</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ CARD 1 · REACTION PICKER (periodic table) ============ -->
+      <div class="wizard-card prompt-card" id="card-picker" hidden>
+        <span class="prompt-step">Step 1</span>
+        <p class="prompt-question">Find your reaction</p>
+
+        <div class="searchbar">
+          <input type="text" id="speciesSearch" class="text-input" placeholder="Search by species or formula, e.g. MnO4" aria-label="Search reactions by species or formula" autocomplete="off" spellcheck="false">
+          <span class="search-preview" id="searchPreview" aria-hidden="true"></span>
+        </div>
+        <div class="searchbar-divider"><span>or tap elements below</span></div>
+
+        <div class="tablewrap">
+          <div class="legend">
+            <span><i class="l-active"></i>in a two-reactant reaction</span>
+            <span><i class="l-sel"></i>selected</span>
+            <span><i class="l-off"></i>not available</span>
+          </div>
+          <div class="ptscroll"><div class="ptable" id="ptable"></div></div>
+        </div>
+
+        <div class="controls">
+          <select id="catsel" class="select" aria-label="Reaction type"></select>
+          <div class="seg" id="matchmode" title="When several elements are selected">
+            <button data-match="all" class="active" type="button">Match all</button>
+            <button data-match="any" type="button">Match any</button>
+          </div>
+          <button class="btn btn--ghost" id="clear" type="button">Clear</button>
+        </div>
+
+        <div class="statusbar">
+          <div class="selchips" id="selchips"></div>
+          <div class="count" id="count"></div>
+        </div>
+
+        <div class="list" id="list"></div>
+      </div>
+
+      <!-- ============ CARD 1b · CUSTOM REACTION — SETUP ============ -->
+      <div class="wizard-card prompt-card" id="card-custom-setup" hidden>
+        <span class="prompt-step">Build your own</span>
+        <p class="prompt-question">How many products does your reaction make?</p>
+        <p class="prompt-subtext">Every custom reaction still has exactly two reactants — the limiting reactant is worked out from both, then the yield is read off whichever product you choose.</p>
+        <div class="seg seg--wide" id="prodcount" role="group" aria-label="Number of products"></div>
+        <div class="wizard-back-row">
+          <button class="btn btn--primary" id="custom-setup-continue" type="button">Continue →</button>
+          <button class="btn btn--ghost" id="custom-setup-back" type="button">← Back to reaction list</button>
+        </div>
+      </div>
+
+      <!-- ============ CARD 1c · CUSTOM REACTION — BUILD ============ -->
+      <div class="wizard-card prompt-card" id="card-custom-build" hidden>
+        <span class="prompt-step">Build your own</span>
+        <p class="prompt-question">Name your reactants and products, and set the ratio</p>
+        <div class="calc-eq" id="customPreview"></div>
+        <div class="custom-side-label">Reactants</div>
+        <div class="custom-grid" id="customReactants"></div>
+        <div class="custom-arrow-row"><span class="custom-arrow">→</span></div>
+        <div class="custom-side-label">Products</div>
+        <div class="custom-grid" id="customProducts"></div>
+        <p class="form-error" id="custom-error" role="alert" hidden></p>
+        <button class="btn btn--primary" id="custom-build-continue" type="button">Build equation →</button>
+        <div class="wizard-back-row">
+          <button class="btn btn--ghost" id="custom-build-back" type="button">← Change product count</button>
+        </div>
+      </div>
+
+      <!-- ============ CARD 2 · WHAT ARE YOU CALCULATING? ============ -->
+      <div class="wizard-card prompt-card" id="card-target" hidden>
+        <span class="prompt-step">Step 2</span>
+        <p class="prompt-question">What are you trying to calculate?</p>
+        <div class="calc-eq" id="targetEq"></div>
+        <div class="choice-grid choice-grid--three">
+          <button class="choice-card choice-card--teal" data-target="theoretical" type="button">
+            <span class="choice-verb">Theoretical yield</span>
+            <span class="choice-desc">The most product the reaction could possibly make, from the amounts of reactants you started with.</span>
+          </button>
+          <button class="choice-card choice-card--gold" data-target="percent" type="button">
+            <span class="choice-verb">Percentage yield</span>
+            <span class="choice-desc">How the product you actually collected compares with the theoretical maximum, as a percentage.</span>
+          </button>
+          <button class="choice-card choice-card--lilac" data-target="actual" type="button">
+            <span class="choice-verb">Actual yield</span>
+            <span class="choice-desc">How much product you'd really collect, given a percentage yield the question tells you.</span>
+          </button>
+        </div>
+        <div class="wizard-back-row">
+          <button class="btn btn--ghost" id="target-back" type="button">← Choose a different reaction</button>
+        </div>
+      </div>
+
+      <!-- ============ CARD 3 · WHICH PRODUCT, AND IN WHAT UNIT? ============ -->
+      <div class="wizard-card prompt-card" id="card-product" hidden>
+        <span class="prompt-step">Step 3</span>
+        <p class="prompt-question" id="product-question">Which product is the yield about?</p>
+        <div class="calc-eq" id="productEq"></div>
+        <div class="custom-side-label">Product</div>
+        <div class="seg seg--wide" id="product-seg" role="group" aria-label="Choose the product"></div>
+        <div class="custom-side-label">Measure the yield as</div>
+        <div class="seg seg--wide" id="unit-seg" role="group" aria-label="Choose how the yield is measured"></div>
+        <div id="product-gas-note"></div>
+        <div class="wizard-back-row">
+          <button class="btn btn--primary" id="product-continue" type="button">Continue →</button>
+          <button class="btn btn--ghost" id="product-back" type="button">← Change what to calculate</button>
+        </div>
+      </div>
+
+      <!-- ============ CARD 4 · MEASUREMENTS ============ -->
+      <div class="wizard-card prompt-card" id="card-measure" hidden>
+        <span class="prompt-step">Step 4</span>
+        <p class="prompt-question">How much of each reactant do you have?</p>
+        <div class="calc-eq" id="measureEq"></div>
+        <div id="measureNote"></div>
+        <div class="inputs" id="inputs"></div>
+        <div id="knownWrap"></div>
+        <p class="form-error" id="measure-error" role="alert" hidden></p>
+        <button class="btn btn--primary" id="measure-continue" type="button">Continue →</button>
+        <div class="wizard-back-row">
+          <button class="btn btn--ghost" id="measure-back" type="button">← Change product or unit</button>
+        </div>
+      </div>
+
+      <!-- ============ CARD 5a · LEARN — one step at a time ============ -->
+      <div class="wizard-card step-combo" id="card-learn" hidden>
+        <div class="step-strategy-zone">
+          <span class="strategy-eyebrow" id="learn-eyebrow">Step 1</span>
+          <p class="strategy-instruction" id="learn-instruction"></p>
+          <p class="strategy-text" id="learn-strategy"></p>
+          <p class="strategy-footnote" id="learn-footnote" hidden></p>
+        </div>
+        <div class="step-calc-zone">
+          <span class="math-eyebrow">Calculation</span>
+          <div class="math-typed" id="learn-math"></div>
+        </div>
+        <div class="step-combo-actions">
+          <button class="btn btn--primary" id="learn-next" type="button">Show the calculation</button>
+        </div>
+      </div>
+
+      <!-- ============ CARD 5b · VERIFY — answers only ============ -->
+      <div class="wizard-card worksheet" id="card-verify" hidden>
+        <div class="worksheet-header">
+          <span class="strategy-eyebrow">Answers only</span>
+          <p class="worksheet-title" id="verify-title">Key figures for each step</p>
+        </div>
+        <div class="worksheet-body" id="verify-body"></div>
+        <div class="step-combo-actions worksheet-actions">
+          <button class="btn btn--primary" id="verify-again" type="button">Try different amounts</button>
+          <button class="btn btn--ghost" id="verify-restart" type="button">Start again</button>
+        </div>
+      </div>
+
+      <!-- ============ CARD 6 · VERDICT (learn only) ============ -->
+      <div class="wizard-card verdict-card" id="card-verdict" hidden>
+        <span class="strategy-eyebrow">Conclusion</span>
+        <p class="verdict-headline" id="verdict-headline"></p>
+        <p class="verdict-body" id="verdict-body"></p>
+        <div class="verdict-actions">
+          <button class="btn btn--primary" id="verdict-again" type="button">Try different amounts</button>
+          <button class="btn btn--ghost" id="verdict-restart" type="button">Start again</button>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div><b>How it works:</b> the limiting reactant fixes how much product can form. For <code>aA + bB → cC</code>, the theoretical amount of C is <code>n(limiting) ÷ its coefficient × c</code>. Then <code>percentage yield = actual ÷ theoretical × 100</code>. This tool finds the limiting reactant for you — it does not show that working; for that, use <a href="https://azlanyaacob92.github.io/stoichiomathics/">Chemculate Limiting Reactant</a>.</div>
+    <div style="margin-top:8px">Relative atomic masses follow common data-booklet values (H = 1.0, O = 16.0, Cl = 35.5, Cu = 63.5 …). State symbols and spectator H⁺/OH⁻ are omitted. Molar gas volume: 24.0 dm³ mol⁻¹ at RTP (20 °C, 1 atm), 22.4 dm³ mol⁻¹ at STP (0 °C, 1 atm). Answers are given to 4 significant figures. This tool shows the method; always re-check against your own mark scheme.</div>
+  </footer>
+
+  <script src="chemistry.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
