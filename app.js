@@ -18,7 +18,16 @@
       accent: 'gold', status: 'live' },
     { id: 'yieldcalculator', path: 'yieldcalculator/', verb: 'Chemculate Yields',
       description: 'Find theoretical, actual, or percentage yield from a balanced equation — in grams, moles, or gas volume. The limiting reactant is worked out for you.',
-      accent: 'lilac', status: 'live' }
+      accent: 'lilac', status: 'live' },
+    { id: 'chemulator-titration', path: 'chemulator/titration.html', verb: 'Chemulate Titrations',
+      description: 'Titrate strong or weak acids against strong or weak bases, watch the pH curve build, and see the ICE-table working at the initial, half-equivalence and equivalence points.',
+      accent: 'teal', status: 'live' },
+    { id: 'chemulator-emission', path: 'chemulator/', verb: 'Chemulate Emission Spectra',
+      description: 'Follow light from a glowing gas tube through a spectrometer and discover why line spectra point to quantised electron energies.',
+      accent: 'lilac', status: 'live' },
+    { id: 'orbitalvisualiser', path: 'orbitalvisualiser/', verb: 'Chemulate Orbitals',
+      description: 'See how n, l, mₗ and mₛ place an electron — an energy-ordered orbital diagram from 1s to 5p with 3-D orbital shapes, sliced by orbital, subshell or shell.',
+      accent: 'gold', status: 'live' }
   ];
 
   // Effective theme: an explicit data-theme wins, otherwise the OS preference
