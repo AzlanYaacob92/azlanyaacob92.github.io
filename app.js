@@ -1,19 +1,41 @@
-// app.js — Chemculator hub
-// Responsibilities: fetch apps.json, render the tool cards, and wire the
-// light/dark toggle (shared localStorage key so the choice persists as
-// someone clicks through into concentrationtrainer/ or stoichiomathics/).
+// app.js - Chemculator hub
+// Renders the tool cards immediately from an embedded list (so they appear on first
+// paint, even from file://), then refreshes from apps.json if it can be fetched.
+// Also wires the light/dark toggle (shared localStorage key "theme").
 
 (function () {
   'use strict';
 
   var THEME_KEY = 'theme';
 
+  // Embedded fallback: keep in sync with apps.json.
+  var FALLBACK_APPS = [
+    { id: 'concentration-trainer', path: 'concentrationtrainer/', verb: 'Chemculate Concentrations',
+      description: 'Convert fluently between molarity, molality, % w/w, % v/v, and mole fraction — 20 unit pairs, with guided Learn and Check modes.',
+      accent: 'teal', status: 'live' },
+    { id: 'stoichiomathics', path: 'stoichiomathics/', verb: 'Chemculate Limiting Reactants',
+      description: 'Work through limiting reactant problems step by step — strategy, calculation, and a verified answer.',
+      accent: 'gold', status: 'live' },
+    { id: 'yieldcalculator', path: 'yieldcalculator/', verb: 'Chemculate Yields',
+      description: 'Find theoretical, actual, or percentage yield from a balanced equation — in grams, moles, or gas volume. The limiting reactant is worked out for you.',
+      accent: 'lilac', status: 'live' }
+  ];
+
+  // Effective theme: an explicit data-theme wins, otherwise the OS preference
+  // (the CSS handles the OS case itself; this is only for the toggle's label).
   function currentIsDark() {
-    return document.documentElement.getAttribute('data-theme') === 'dark';
+    var t = document.documentElement.getAttribute('data-theme');
+    if (t === 'dark') return true;
+    if (t === 'light') return false;
+    return !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
   }
 
   function updateToggleIcon(btn) {
-    btn.textContent = currentIsDark() ? '☀️' : '🌙';
+    var dark = currentIsDark();
+    var label = dark ? 'Switch to light mode' : 'Switch to dark mode';
+    btn.textContent = dark ? '☀️' : '🌙';
+    btn.setAttribute('aria-label', label);
+    btn.setAttribute('title', label);
   }
 
   function initThemeToggle() {
@@ -21,15 +43,15 @@
     if (!btn) return;
     updateToggleIcon(btn);
     btn.addEventListener('click', function () {
-      if (currentIsDark()) {
-        document.documentElement.removeAttribute('data-theme');
-        try { localStorage.setItem(THEME_KEY, 'light'); } catch (e) {}
-      } else {
-        document.documentElement.setAttribute('data-theme', 'dark');
-        try { localStorage.setItem(THEME_KEY, 'dark'); } catch (e) {}
-      }
+      var next = currentIsDark() ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      try { localStorage.setItem(THEME_KEY, next); } catch (e) {}
       updateToggleIcon(btn);
     });
+    if (window.matchMedia) {
+      var mq = window.matchMedia('(prefers-color-scheme: dark)');
+      if (mq.addEventListener) mq.addEventListener('change', function () { updateToggleIcon(btn); });
+    }
   }
 
   function renderApps(apps) {
@@ -37,11 +59,11 @@
     grid.innerHTML = '';
 
     if (!Array.isArray(apps) || apps.length === 0) {
-      grid.innerHTML = '<p class="form-error">No tools are listed in apps.json yet.</p>';
+      grid.innerHTML = '<p class="ds-note">No tools are listed yet.</p>';
       return;
     }
 
-    apps.forEach(function (app, i) {
+    apps.forEach(function (app) {
       var isLive = app.status === 'live';
       var card = document.createElement(isLive ? 'a' : 'div');
       if (isLive) {
@@ -49,117 +71,52 @@
       } else {
         card.setAttribute('aria-disabled', 'true');
       }
-      card.className = 'choice-card choice-card--' + app.accent + (isLive ? '' : ' choice-card--disabled');
-      card.style.animationDelay = (i * 0.08) + 's';
+      card.className = 'app-card' + (isLive ? '' : ' app-card--disabled');
 
-      var verb = document.createElement('span');
-      verb.className = 'choice-verb';
-      verb.textContent = app.verb;
+      var title = document.createElement('span');
+      title.className = 'app-card__title';
+      title.textContent = app.verb;
 
       var desc = document.createElement('span');
-      desc.className = 'choice-desc';
+      desc.className = 'app-card__desc';
       desc.textContent = app.description;
 
-      card.appendChild(verb);
+      var chip = document.createElement('span');
+      chip.className = 'ds-chip app-card__chip';
+      chip.textContent = isLive ? 'Open tool →' : 'Coming soon';
+
+      card.appendChild(title);
       card.appendChild(desc);
-
-      if (!isLive) {
-        var badge = document.createElement('span');
-        badge.className = 'choice-badge';
-        badge.textContent = 'Coming soon';
-        card.appendChild(badge);
-      }
-
+      card.appendChild(chip);
       grid.appendChild(card);
     });
   }
 
-  function prefersReducedMotion() {
-    return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
-  }
-
-  function typeText(el, text, speedMs) {
-    return new Promise(function (resolve) {
-      el.textContent = '';
-      var i = 0;
-      (function step() {
-        if (i < text.length) {
-          el.textContent += text.charAt(i);
-          i++;
-          setTimeout(step, speedMs);
-        } else {
-          resolve();
-        }
-      })();
-    });
-  }
-
-  function wait(ms) {
-    return new Promise(function (resolve) { setTimeout(resolve, ms); });
-  }
-
-  function revealMainContent() {
-    var intro = document.getElementById('intro');
-    var main = document.getElementById('main-content');
-    if (!main) return;
-    if (!intro) { main.hidden = false; return; }
-    intro.classList.add('intro--fade-out');
-    setTimeout(function () {
-      intro.hidden = true;
-      main.hidden = false;
-    }, 500); // matches .intro fade-out transition duration
-  }
-
-  function playIntro() {
-    var introTitle = document.getElementById('intro-title');
-    var introSubtitle = document.getElementById('intro-subtitle');
-    var intro = document.getElementById('intro');
-    var main = document.getElementById('main-content');
-    if (!introTitle || !introSubtitle || !intro || !main) return;
-
-    if (prefersReducedMotion()) {
-      intro.hidden = true;
-      main.hidden = false;
-      return;
-    }
-
-    introTitle.classList.add('typing-cursor');
-    typeText(introTitle, 'Welcome to Chemculator', 55)
-      .then(function () {
-        introTitle.classList.remove('typing-cursor');
-        introSubtitle.classList.add('typing-cursor');
-        return typeText(introSubtitle, 'The calculator you never knew you needed for chemistry', 32);
-      })
-      .then(function () {
-        return wait(2000);
-      })
-      .then(function () {
-        introSubtitle.classList.remove('typing-cursor');
-        revealMainContent();
-      });
-  }
-
+  // Cards first (synchronous, no hidden state), then quietly refresh from apps.json.
   function loadApps() {
+    renderApps(FALLBACK_APPS);
+    if (typeof fetch !== 'function') return;
     fetch('apps.json')
       .then(function (res) {
         if (!res.ok) throw new Error('apps.json returned ' + res.status);
         return res.json();
       })
-      .then(renderApps)
-      .catch(function () {
-        var grid = document.getElementById('app-grid');
-        grid.innerHTML = '<p class="form-error">Could not load the tool list. Check that apps.json is in this folder.</p>';
-      });
+      .then(function (apps) {
+        if (Array.isArray(apps) && apps.length) renderApps(apps);
+      })
+      .catch(function () { /* keep the embedded list */ });
   }
 
-  document.addEventListener('DOMContentLoaded', function () {
+  function init() {
     initThemeToggle();
     loadApps();
-    playIntro();
-  });
+  }
+  // script is at the end of <body>, so the DOM is ready; render now to avoid any flash
+  if (document.getElementById('app-grid')) init();
+  else document.addEventListener('DOMContentLoaded', init);
 
   // exposed for the test suite
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { renderApps: renderApps, typeText: typeText, playIntro: playIntro, revealMainContent: revealMainContent };
+    module.exports = { renderApps: renderApps };
   }
 })();

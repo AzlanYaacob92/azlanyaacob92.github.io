@@ -23,7 +23,11 @@
   if (!toggleBtn) return;
   const root = document.documentElement;
 
-  function isDark() { return root.getAttribute('data-theme') === 'dark'; }
+  function isDark() {
+    const t = root.getAttribute('data-theme');
+    if (t === 'dark' || t === 'light') return t === 'dark';
+    try { return !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches); } catch (e) { return false; }
+  }
 
   function reflect() {
     const dark = isDark();
@@ -33,6 +37,9 @@
   }
 
   reflect(); // match whatever the inline head script already applied
+  try {
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', reflect);
+  } catch (e) { /* older browsers */ }
 
   toggleBtn.addEventListener('click', () => {
     const next = isDark() ? 'light' : 'dark';
@@ -374,7 +381,7 @@
         <div class="rxbody">
           <div class="eq">${fmtEq(q.eq)}</div>
           <div class="meta">
-            <span class="tag" style="background:${c.color}22;color:${c.color};border:1px solid ${c.color}55">${c.label}</span>
+            <span class="tag" style="--tag:${c.color}">${c.label}</span>
             ${q.cond ? `<span class="cond">${q.cond}</span>` : ''}
             ${q.hadSpect ? `<span class="cond cond--warn">H⁺/OH⁻ omitted</span>` : ''}
           </div>

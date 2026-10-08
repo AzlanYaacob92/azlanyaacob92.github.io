@@ -1,0 +1,366 @@
+/* =============================================================
+   design-system.css — Lavender + Willow design system
+   Portable token layer. Two source palettes:
+     Lavender Veil → Lavender Purple  (primary / brand / interactive)
+     Frosted Mint  → Willow Green     (secondary / positive / confirm)
+
+   The five swatches in each source palette are all tints: none of
+   them reaches 4.5:1 against white, so they are used as SURFACES
+   and FILLS. Text and action colours are the derived 600–900 steps
+   below. Every pairing marked ✓ was checked against WCAG 2.1 AA.
+   ============================================================= */
+
+:root {
+  /* ---------- lavender ramp (50–400 are the source swatches) ---------- */
+  --lav-50:  #ebe0ff;  /* Lavender Veil     */
+  --lav-100: #dac7ff;  /* Periwinkle        */
+  --lav-200: #c7adff;  /* Mauve             */
+  --lav-300: #ac8bee;  /* Soft Periwinkle   */
+  --lav-400: #916dd5;  /* Lavender Purple   */
+  --lav-500: #7a52c4;  /* derived — smallest fill that holds white text ✓ 5.48 */
+  --lav-600: #6340a6;  /* derived — text / links on white ✓ 7.46 */
+  --lav-700: #4a2e7e;  /* derived — headings ✓ 10.59 */
+  --lav-900: #2e1b52;  /* derived — deep surface, dark-mode base */
+
+  /* ---------- willow ramp (50–400 are the source swatches) ---------- */
+  --grn-50:  #e4fde1;  /* Frosted Mint (light) */
+  --grn-100: #d5f5d2;  /* Frosted Mint        */
+  --grn-200: #c6edc3;  /* Tea Green           */
+  --grn-300: #a7dca5;  /* Celadon             */
+  --grn-400: #90cf8e;  /* Willow Green        */
+  --grn-500: #6fb86d;  /* derived — fill, pairs with ink not white */
+  --grn-600: #4f9a50;  /* derived — icons / large text only (3.46) */
+  --grn-700: #356e38;  /* derived — text & solid buttons ✓ 6.11 */
+  --grn-900: #1e3f22;  /* derived — deep surface */
+
+  /* ---------- neutrals (warmed toward lavender, not pure grey) ---------- */
+  --ink:   #1c1725;   /* body text ✓ 17.5 on white  */
+  --ink-2: #3b3450;   /* subheads ✓ 11.7            */
+  --muted: #5b5470;   /* secondary text ✓ 7.1       */
+  --faint: #8a7fa8;   /* placeholders, 3.7 — never body copy */
+  --line:  #e5dcf5;
+  --line-strong: #cdbfe8;
+
+  /* ---------- surfaces ---------- */
+  --bg:      #faf7ff;
+  --bg-tint: #f6f2ff;
+  --card:    #ffffff;
+  --card-2:  var(--lav-50);
+  --overlay: rgba(46, 27, 82, .48);
+
+  /* ---------- semantic roles ---------- */
+  --primary:        var(--lav-500);
+  --primary-hover:  var(--lav-600);
+  --primary-ink:    #ffffff;
+  --primary-soft:   var(--lav-50);
+  --primary-soft-ink: var(--lav-600);   /* ✓ 5.91 on --lav-50 */
+
+  --accent:         var(--grn-700);
+  --accent-hover:   var(--grn-900);
+  --accent-ink:     #ffffff;
+  --accent-soft:    var(--grn-50);
+  --accent-soft-ink: var(--grn-700);    /* ✓ 5.65 on --grn-50 */
+
+  --success:      var(--grn-700);
+  --success-soft: var(--grn-50);
+  --danger:       #b4304a;              /* ✓ 6.07 both directions */
+  --danger-soft:  #fdeef1;
+  --warn:         #b8721f;              /* fill only — pair with --ink, not white */
+  --warn-ink:     #7a4a0f;
+  --warn-soft:    #fdf3e3;
+
+  --focus-ring: 0 0 0 3px rgba(122, 82, 196, .38);
+
+  /* ---------- elevation: lavender-tinted, never neutral grey ---------- */
+  --shadow-1: 0 1px 2px rgba(46, 27, 82, .07);
+  --shadow-2: 0 2px 4px rgba(46, 27, 82, .06), 0 10px 28px rgba(46, 27, 82, .08);
+  --shadow-3: 0 8px 20px rgba(46, 27, 82, .10), 0 24px 60px rgba(46, 27, 82, .12);
+
+  /* ---------- shape ---------- */
+  --r-sm: 8px;
+  --r-md: 14px;
+  --r-lg: 22px;
+  --r-pill: 999px;
+
+  /* ---------- 4px spacing scale ---------- */
+  --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px; --sp-4: 16px;
+  --sp-5: 24px; --sp-6: 32px; --sp-7: 48px; --sp-8: 64px;
+
+  /* =============================================================
+     TYPE — professional, plainly readable, zero network dependency.
+
+     Three voices, no webfonts: the app must render identically on a
+     school machine with no connection. Softness comes from the letterform
+     itself, not a filter on top of it — so the stacks lead with genuinely
+     rounded, humanist-terminal system faces (Candara, Calibri, and on
+     Apple platforms the `ui-rounded` generic, which resolves to SF Pro
+     Rounded) before falling back to Segoe UI / the platform UI face,
+     where the same softening comes instead from lighter tracking, a
+     touch more line-height, and weights that never lean on 700 for
+     ordinary hierarchy.
+
+     Georgia was dropped: it is readable but reads bookish, and its
+     small numerals fight the calculation lines this app is built on.
+     ============================================================= */
+
+  /* headings and any type ≥ 20px — Candara's flared, calligraphic
+     strokes read considerably softer than Segoe UI's cut corners */
+  --font-display: Candara, "ui-rounded", "Segoe UI Variable Display",
+                  Calibri, "Segoe UI", -apple-system, system-ui, Roboto,
+                  "Helvetica Neue", Arial, sans-serif;
+  /* body, labels, controls — everything below 20px. Calibri's rounded
+     terminals and open apertures keep small text friendly, not clinical */
+  --font-body: Calibri, "ui-rounded", "Segoe UI Variable Text",
+               "Segoe UI", -apple-system, system-ui, Roboto,
+               "Helvetica Neue", Arial, sans-serif;
+  /* the second voice, and it earns its keep: quantities, units,
+     equations, anything that must align in a column. Consolas over
+     Cascadia here too — its curves are noticeably rounder */
+  --font-mono: Consolas, "Cascadia Mono", "SFMono-Regular", ui-monospace,
+               Menlo, "JetBrains Mono", monospace;
+
+  /* weights — one step apart, capped at 600: nothing needs 700 to read
+     as a heading once the letterform itself is doing the work */
+  --w-normal: 400;
+  --w-medium: 500;
+  --w-semi:   600;
+  --w-bold:   600;
+
+  /* line heights: a little looser throughout than a technical system
+     would use — tight leading is part of what reads "hard" */
+  --lh-display: 1.22;
+  --lh-heading: 1.34;
+  --lh-body:    1.68;   /* generous — this is a page students read slowly */
+  --lh-tight:   1.45;
+
+  /* measure: never let running text run wider than this */
+  --measure: 66ch;
+  --measure-narrow: 46ch;
+
+  /* scale — 1.0rem base, ~1.22 ratio, deliberately shallow so nothing
+     shouts and every step stays distinguishable */
+  --fs-display: clamp(1.875rem, 1.55rem + 1.5vw, 2.375rem);
+  --fs-h1:      clamp(1.5rem, 1.35rem + .75vw, 1.75rem);
+  --fs-h2:      1.3125rem;
+  --fs-h3:      1.0625rem;
+  --fs-body:    1rem;       /* 16px floor — never smaller for prose */
+  --fs-small:   0.875rem;
+  --fs-label:   0.75rem;
+  --fs-micro:   0.6875rem;  /* units and footnotes only, never sentences */
+
+  /* composed shorthands: font: var(--t-h2) */
+  --t-display: var(--w-semi) var(--fs-display)/var(--lh-display) var(--font-display);
+  --t-h1:      var(--w-semi) var(--fs-h1)/var(--lh-heading) var(--font-display);
+  --t-h2:      var(--w-semi) var(--fs-h2)/var(--lh-heading) var(--font-display);
+  --t-h3:      var(--w-semi) var(--fs-h3)/var(--lh-tight) var(--font-body);
+  --t-body:    var(--w-normal) var(--fs-body)/var(--lh-body) var(--font-body);
+  --t-body-strong: var(--w-semi) var(--fs-body)/var(--lh-body) var(--font-body);
+  --t-small:   var(--w-normal) var(--fs-small)/1.55 var(--font-body);
+  --t-label:   var(--w-bold) var(--fs-label)/var(--lh-tight) var(--font-body);
+  --t-mono:    var(--w-normal) var(--fs-small)/var(--lh-tight) var(--font-mono);
+  --t-quantity: var(--w-medium) var(--fs-body)/var(--lh-tight) var(--font-mono);
+
+  /* tracking: near-neutral, not tightened — negative tracking is what
+     makes a headline feel engineered instead of written */
+  --tr-display: -0.006em;
+  --tr-heading: 0em;
+  --tr-body:    0em;
+  --tr-label:   0.06em;   /* uppercase labels still need a little air */
+
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --dur-fast: 120ms;
+  --dur: 220ms;
+  --dur-slow: 420ms;
+}
+
+/* =============================================================
+   dark mode — the ramps invert roles: tints become the ink,
+   the 900 step becomes the room. Same token names throughout.
+   ============================================================= */
+[data-theme="dark"] {
+  --ink:   #ebe0ff;   /* ✓ 14.8 on --bg */
+  --ink-2: #dac7ff;
+  --muted: #a79fc0;   /* ✓ 7.4 */
+  --faint: #7c7496;
+  --line:  #2a2140;
+  --line-strong: #3d3157;
+
+  --bg:      #151021;
+  --bg-tint: #1d1630;
+  --card:    #1d1630;
+  --card-2:  #2a2140;
+  --overlay: rgba(10, 6, 20, .66);
+
+  --primary:        var(--lav-300);
+  --primary-hover:  var(--lav-200);
+  --primary-ink:    #1c1725;          /* dark text on a light lavender fill */
+  --primary-soft:   #2a2140;
+  --primary-soft-ink: var(--lav-100); /* ✓ 9.8 */
+
+  --accent:         var(--grn-300);
+  --accent-hover:   var(--grn-200);
+  --accent-ink:     #10240f;
+  --accent-soft:    #1f3320;
+  --accent-soft-ink: var(--grn-200);
+
+  --success:      var(--grn-300);
+  --success-soft: #1f3320;
+  --danger:       #f0a3b0;
+  --danger-soft:  #3a1a22;
+  --warn:         #f0c274;
+  --warn-ink:     #f0c274;
+  --warn-soft:    #33260f;
+
+  --focus-ring: 0 0 0 3px rgba(172, 139, 238, .45);
+
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, .5);
+  --shadow-2: 0 2px 4px rgba(0, 0, 0, .4), 0 10px 28px rgba(0, 0, 0, .45);
+  --shadow-3: 0 8px 20px rgba(0, 0, 0, .5), 0 24px 60px rgba(0, 0, 0, .55);
+}
+
+/* Follow the OS when no explicit choice has been stored. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --ink: #ebe0ff; --ink-2: #dac7ff; --muted: #a79fc0; --faint: #7c7496;
+    --line: #2a2140; --line-strong: #3d3157;
+    --bg: #151021; --bg-tint: #1d1630; --card: #1d1630; --card-2: #2a2140;
+    --overlay: rgba(10, 6, 20, .66);
+    --primary: var(--lav-300); --primary-hover: var(--lav-200);
+    --primary-ink: #1c1725; --primary-soft: #2a2140; --primary-soft-ink: var(--lav-100);
+    --accent: var(--grn-300); --accent-hover: var(--grn-200);
+    --accent-ink: #10240f; --accent-soft: #1f3320; --accent-soft-ink: var(--grn-200);
+    --success: var(--grn-300); --success-soft: #1f3320;
+    --danger: #f0a3b0; --danger-soft: #3a1a22;
+    --warn: #f0c274; --warn-ink: #f0c274; --warn-soft: #33260f;
+    --focus-ring: 0 0 0 3px rgba(172, 139, 238, .45);
+    --shadow-1: 0 1px 2px rgba(0,0,0,.5);
+    --shadow-2: 0 2px 4px rgba(0,0,0,.4), 0 10px 28px rgba(0,0,0,.45);
+    --shadow-3: 0 8px 20px rgba(0,0,0,.5), 0 24px 60px rgba(0,0,0,.55);
+  }
+}
+
+/* =============================================================
+   component primitives — thin, opt-in, all token-driven
+   ============================================================= */
+
+/* ---------- base type wiring ----------
+   These apply the tokens above so headings, running text, and
+   quantities look right by default, not only inside .ds-* wrappers. */
+h1, h2, h3, h4 { margin: 0; text-wrap: balance; color: var(--ink-2); }
+h1 { font: var(--t-display); letter-spacing: var(--tr-display); }
+h2 { font: var(--t-h1); letter-spacing: var(--tr-heading); }
+h3 { font: var(--t-h2); letter-spacing: var(--tr-heading); }
+h4 { font: var(--t-h3); }
+
+p, li { font: var(--t-body); color: var(--ink); max-width: var(--measure); }
+p.lede { font: var(--w-normal) 1.125rem/var(--lh-body) var(--font-body); color: var(--muted); }
+
+small, .ds-caption { font: var(--t-small); color: var(--muted); }
+
+.ds-eyebrow, .ds-label-inline {
+  font: var(--t-label);
+  text-transform: uppercase;
+  letter-spacing: var(--tr-label);
+  color: var(--muted);
+}
+
+/* quantities, units, calc lines — tabular figures so columns line up */
+.ds-quantity, code, kbd, samp {
+  font: var(--t-quantity);
+  font-variant-numeric: tabular-nums;
+}
+
+.ds-card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: var(--sp-5);
+  box-shadow: var(--shadow-2);
+}
+
+.ds-btn {
+  font: var(--t-small);
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 10px 18px;
+  border-radius: var(--r-pill);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background var(--dur) var(--ease), transform var(--dur) var(--ease),
+              box-shadow var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.ds-btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.ds-btn:active { transform: translateY(1px); }
+.ds-btn[disabled] { opacity: .5; cursor: not-allowed; transform: none; }
+
+.ds-btn--primary   { background: var(--primary); color: var(--primary-ink); }
+.ds-btn--primary:hover:not([disabled])   { background: var(--primary-hover); }
+
+.ds-btn--accent    { background: var(--accent); color: var(--accent-ink); }
+.ds-btn--accent:hover:not([disabled])    { background: var(--accent-hover); }
+
+.ds-btn--soft      { background: var(--primary-soft); color: var(--primary-soft-ink); }
+.ds-btn--soft:hover:not([disabled])      { background: var(--lav-100); }
+
+.ds-btn--ghost     { background: transparent; color: var(--primary-soft-ink);
+                     border-color: var(--line-strong); }
+.ds-btn--ghost:hover:not([disabled])     { background: var(--bg-tint); }
+
+.ds-btn--danger    { background: var(--danger); color: #fff; }
+
+.ds-label {
+  font: var(--t-label);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--muted);
+}
+
+.ds-field {
+  font: var(--t-body);
+  width: 100%;
+  padding: 10px 14px;
+  color: var(--ink);
+  background: var(--card);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-md);
+  transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+}
+.ds-field::placeholder { color: var(--faint); }
+.ds-field:focus { outline: none; border-color: var(--primary); box-shadow: var(--focus-ring); }
+.ds-field[aria-invalid="true"] { border-color: var(--danger); }
+
+.ds-chip {
+  font: var(--t-label);
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border-radius: var(--r-pill);
+  background: var(--primary-soft);
+  color: var(--primary-soft-ink);
+}
+.ds-chip--accent  { background: var(--accent-soft); color: var(--accent-soft-ink); }
+.ds-chip--danger  { background: var(--danger-soft); color: var(--danger); }
+.ds-chip--warn    { background: var(--warn-soft);   color: var(--warn-ink); }
+
+/* Callouts get a 3px leading edge in the role colour — the one place
+   the saturated 400-step swatches carry meaning on their own. */
+.ds-note {
+  border-left: 3px solid var(--primary);
+  background: var(--primary-soft);
+  color: var(--ink);
+  border-radius: 0 var(--r-md) var(--r-md) 0;
+  padding: var(--sp-3) var(--sp-4);
+}
+.ds-note--accent { border-left-color: var(--accent); background: var(--accent-soft); }
+.ds-note--danger { border-left-color: var(--danger); background: var(--danger-soft); }
+.ds-note--warn   { border-left-color: var(--warn);   background: var(--warn-soft); }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
