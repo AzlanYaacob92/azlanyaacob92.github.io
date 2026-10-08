@@ -101,10 +101,10 @@ h1, .site-title { margin: var(--sp-1) 0 var(--sp-3); color: var(--ink-2); }
 
 /* ---------------- wizard pan transitions ---------------- */
 @keyframes fade { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
-@keyframes pan-in-right  { from { opacity: 0; transform: translateX(56px); } to { opacity: 1; transform: none; } }
-@keyframes pan-in-left   { from { opacity: 0; transform: translateX(-56px); } to { opacity: 1; transform: none; } }
-@keyframes pan-out-left  { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateX(-56px); } }
-@keyframes pan-out-right { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateX(56px); } }
+@keyframes pan-in-right  { from { opacity: 0; } to { opacity: 1; } }
+@keyframes pan-in-left   { from { opacity: 0; } to { opacity: 1; } }
+@keyframes pan-out-left  { from { opacity: 1; } to { opacity: 0; } }
+@keyframes pan-out-right { from { opacity: 1; } to { opacity: 0; } }
 .wizard-card { will-change: transform, opacity; }
 .anim-pan-in-right  { animation: pan-in-right var(--dur-slow) var(--ease); }
 .anim-pan-in-left   { animation: pan-in-left var(--dur-slow) var(--ease); }
