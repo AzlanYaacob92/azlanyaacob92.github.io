@@ -59,64 +59,16 @@
     return `<span class="frac"><span class="frac-num">${num}</span><span class="frac-den">${den}</span></span>`;
   }
 
-  /* ---------------- reduced motion ---------------- */
-  let prefersReducedMotion = false;
-  try {
-    prefersReducedMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
-  } catch (e) { /* matchMedia unavailable — treat as full motion */ }
+  /* ---------------- motion ----------------
+     Every JS-driven animation goes through motion.js (window.Motion), which
+     takes its timing from the design-system tokens and honours reduced motion. */
+  const Motion = window.Motion;
 
-  /* ---------------- animation helpers ----------------
-     Every pan pairs a real CSS animation with a timed fallback, so
-     navigation never gets stuck. */
-  function onAnimEnd(el, fallbackMs, cb) {
-    let done = false;
-    function finish() {
-      if (done) return;
-      done = true;
-      el.removeEventListener('animationend', onEnd);
-      clearTimeout(timer);
-      cb();
-    }
-    function onEnd(e) { if (e.target === el) finish(); }
-    el.addEventListener('animationend', onEnd);
-    const timer = setTimeout(finish, fallbackMs);
-  }
-
-  function enterCard(el, direction) {
-    if (!el) return;
-    el.hidden = false;
-    if (prefersReducedMotion) return;
-    const cls = direction === 'back' ? 'anim-pan-in-left' : 'anim-pan-in-right';
-    el.classList.remove('anim-pan-in-left', 'anim-pan-in-right');
-    void el.offsetWidth;
-    el.classList.add(cls);
-    onAnimEnd(el, 700, () => el.classList.remove(cls));
-  }
-
-  function exitCard(el, direction, cb) {
-    if (!el) { if (cb) cb(); return; }
-    if (prefersReducedMotion) { el.hidden = true; if (cb) cb(); return; }
-    const cls = direction === 'back' ? 'anim-pan-out-right' : 'anim-pan-out-left';
-    el.classList.remove('anim-pan-out-left', 'anim-pan-out-right');
-    void el.offsetWidth;
-    el.classList.add(cls);
-    onAnimEnd(el, 550, () => {
-      el.hidden = true;
-      el.classList.remove(cls);
-      if (cb) cb();
-    });
-  }
-
-  // The one wizard transition primitive: pan `fromEl` out (if any), run
-  // `updateFn`, then pan `toEl` in. fromEl and toEl may be the same element,
+  // The one wizard transition primitive: `fromEl` leaves (if any), `updateFn`
+  // runs, then `toEl` arrives. fromEl and toEl may be the same element,
   // refreshed in place.
   function panTransition(fromEl, toEl, direction, updateFn) {
-    function doEnter() {
-      if (updateFn) updateFn();
-      enterCard(toEl, direction);
-    }
-    if (fromEl) exitCard(fromEl, direction, doEnter);
-    else doEnter();
+    Motion.swap(fromEl, toEl, updateFn);
   }
 
   /* ---------------- stacked-equation grid ----------------
@@ -160,7 +112,7 @@
 
   function typewriterMathGrid(el, html) {
     el.innerHTML = mathGrid(html);
-    if (prefersReducedMotion) return;
+    if (Motion.reduced()) return;
     try {
       const grid = el.querySelector('.eqgrid');
       if (!grid) return;
@@ -238,9 +190,7 @@
     current = key;
     backLink.hidden = (key === 'landing');
     panTransition(from === to ? null : from, to, direction || 'forward', updateFn);
-    if (to && to.scrollIntoView && key !== 'landing') {
-      setTimeout(() => { try { to.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch (e) {} }, 60);
-    }
+    if (to && key !== 'landing') setTimeout(() => Motion.scrollIntoView(to), 60);
   }
 
   function resetAll() {
@@ -263,15 +213,10 @@
     goTo('picker', 'forward');
   }));
 
-  // gentle entrance: lead line pans in, choice cards grow in with a stagger
+  // gentle entrance: the lead line arrives, then the choice cards grow in one after another
   function playLandingEntrance() {
-    if (prefersReducedMotion) return;
-    const lead = document.getElementById('hero-lead');
-    if (lead) lead.classList.add('anim-hero-in');
-    document.querySelectorAll('.choice-card').forEach((c, i) => {
-      c.classList.add('anim-grow-in');
-      c.style.animationDelay = (120 + i * 110) + 'ms';
-    });
+    Motion.enter(document.getElementById('hero-lead'));
+    Motion.stagger(document.querySelectorAll('.choice-card'), { y: 0, scale: 0.92, delay: 120 });
   }
 
   /* ---------------- picker: periodic table ---------------- */

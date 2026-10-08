@@ -176,10 +176,13 @@
   --tr-body:    0em;
   --tr-label:   0.06em;   /* uppercase labels still need a little air */
 
-  --ease: cubic-bezier(0.16, 1, 0.3, 1);
-  --dur-fast: 120ms;
-  --dur: 220ms;
-  --dur-slow: 420ms;
+  /* ---------- motion: read by CSS and by motion.js alike ---------- */
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);       /* UI arriving or leaving */
+  --ease-move: cubic-bezier(0.4, 0, 0.2, 1);   /* an object travelling inside a simulation */
+  --dur-fast: 120ms;    /* hover, press */
+  --dur: 220ms;         /* state changes, and anything leaving */
+  --dur-slow: 420ms;    /* anything entering the page */
+  --stagger: 90ms;      /* gap between items that arrive one after another */
 }
 
 /* =============================================================
@@ -581,22 +584,11 @@ body {
 .choice-verb { font: var(--t-h2); letter-spacing: var(--tr-heading); color: var(--wash-ink); }
 .choice-desc { font: var(--t-body); color: var(--ink); }
 
-/* ---------- entrances and step changes ----------
-   One vocabulary for the wizard apps: things fade up as they arrive,
-   cards grow in from 92%, and a step leaving is quicker than the one
-   arriving. */
-@keyframes fade    { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
-@keyframes grow-in { from { opacity: 0; transform: scale(.92); } to { opacity: 1; transform: scale(1); } }
-@keyframes pan-in-right  { from { opacity: 0; } to { opacity: 1; } }
-@keyframes pan-in-left   { from { opacity: 0; } to { opacity: 1; } }
-@keyframes pan-out-left  { from { opacity: 1; } to { opacity: 0; } }
-@keyframes pan-out-right { from { opacity: 1; } to { opacity: 0; } }
-.anim-pan-in-right  { animation: pan-in-right var(--dur-slow) var(--ease); }
-.anim-pan-in-left   { animation: pan-in-left var(--dur-slow) var(--ease); }
-.anim-pan-out-left  { animation: pan-out-left var(--dur) var(--ease) forwards; }
-.anim-pan-out-right { animation: pan-out-right var(--dur) var(--ease) forwards; }
-.anim-hero-in { animation: pan-in-right var(--dur-slow) var(--ease) both; }
-.anim-grow-in { animation: grow-in var(--dur-slow) var(--ease) both; }
+/* ---------- entrances ----------
+   Content that appears from CSS alone fades up with this. Step changes,
+   staggered entrances and anything else driven from JS go through
+   motion.js, which reads the same tokens. */
+@keyframes fade { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
