@@ -1,9 +1,12 @@
 /* =============================================================
    styles.css — Chemculator hub
-   Built from the shared teal/amber/gold tokens common to both
-   Concentration Trainer and Stoichiomathics, so the hub reads as
-   a natural third member of the same design system rather than a
-   separately-styled front door.
+   Built from the shared Chemculator design spec (v1): the tokens,
+   shapes and "signature card" below are the contract that the hub
+   and both Chemulator simulators (emission, titration) share.
+   The signature card (.sig-card) is derived from the Uiverse card:
+   flat saturated fill, chunky 10px -> 15px radius, big soft shadow,
+   springy scale(1.2) on hover, and a bold front face that collapses
+   while a second face rotates in.
    ============================================================= */
 
 :root {
@@ -37,8 +40,23 @@
   --amber-panel-border: var(--amber-500);
   --amber-panel-text:   #7c3a06;
 
-  --shadow: 0 1px 2px rgba(19, 78, 74, .06), 0 8px 24px rgba(19, 78, 74, .06);
-  --radius: 14px;
+  --shadow: 0 6px 18px rgba(19, 78, 74, .14);
+  --radius: 14px;        /* panels / cards */
+  --radius-sm: 10px;     /* buttons / inputs */
+  --radius-pill: 999px;
+
+  /* focus ring: gold, 3px (see :focus-visible rules) */
+  --ring: var(--gold);
+
+  /* signature card (spec component A) */
+  --sig-radius: 10px;
+  --sig-radius-hover: 15px;
+  --sig-scale: 1.2;
+  --sig-dur: .4s;
+  --sig-spring: cubic-bezier(0.34, 1.56, 0.64, 1);   /* springy overshoot, transform only */
+  --sig-shadow-hover: 0 0 10px 5px rgba(0, 0, 0, .35);
+
+  --page-max: 1160px;    /* header / main / footer; wide enough for 5 cards in a row */
 
   --display: Georgia, "Times New Roman", serif;
   --body: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -84,19 +102,8 @@
 }
 
 [data-theme="dark"] .site-title,
-[data-theme="dark"] .choice-verb,
 [data-theme="dark"] .hero-lead,
 [data-theme="dark"] .intro-title { color: var(--ink); }
-[data-theme="dark"] .btn--primary { color: #06231f; }
-[data-theme="dark"] .back-link:hover { color: #7af2e4; }
-[data-theme="dark"] .choice-card--teal { box-shadow: var(--shadow), 0 0 18px rgba(45, 212, 191, .28); }
-[data-theme="dark"] .choice-card--teal:hover { box-shadow: 0 10px 30px rgba(19, 78, 74, .12), 0 0 32px rgba(45, 212, 191, .55); }
-[data-theme="dark"] .choice-card--gold,
-[data-theme="dark"] .choice-card--amber { box-shadow: var(--shadow), 0 0 18px rgba(245, 185, 66, .28); }
-[data-theme="dark"] .choice-card--gold:hover,
-[data-theme="dark"] .choice-card--amber:hover { box-shadow: 0 10px 30px rgba(19, 78, 74, .12), 0 0 32px rgba(245, 185, 66, .55); }
-[data-theme="dark"] .choice-card--lilac { box-shadow: var(--shadow), 0 0 18px rgba(167, 139, 250, .28); }
-[data-theme="dark"] .choice-card--lilac:hover { box-shadow: 0 10px 30px rgba(19, 78, 74, .12), 0 0 32px rgba(167, 139, 250, .6); }
 
 * { box-sizing: border-box; }
 
@@ -114,6 +121,9 @@ body {
     radial-gradient(1200px 600px at 80% -10%, #14202b 0%, transparent 60%),
     radial-gradient(900px 500px at -10% 10%, #102219 0%, transparent 55%),
     var(--bg);
+  /* short pages: don't tile the gradients below the content */
+  background-repeat: no-repeat;
+  background-attachment: fixed;
 }
 
 /* ---------- theme toggle ---------- */
@@ -138,11 +148,11 @@ body {
   transition: background .35s var(--ease-buttery), transform .2s var(--ease-buttery), box-shadow .3s var(--ease-buttery);
 }
 .theme-toggle:hover { transform: translateY(-2px); }
-.theme-toggle:focus-visible { outline: 3px solid var(--amber-500); outline-offset: 2px; }
+.theme-toggle:focus-visible { outline: 3px solid var(--ring); outline-offset: 2px; }
 
 /* ---------- header / footer ---------- */
 .site-header {
-  max-width: 900px;
+  max-width: var(--page-max);
   margin: 0 auto;
   padding: 40px 24px 8px;
 }
@@ -173,7 +183,7 @@ body {
 [data-theme="dark"] .site-logo--light { display: none; }
 [data-theme="dark"] .site-logo--dark { display: block; }
 .site-footer {
-  max-width: 900px;
+  max-width: var(--page-max);
   margin: 56px auto 40px;
   padding: 0 24px;
   color: var(--muted);
@@ -184,7 +194,7 @@ body {
 }
 .site-footer b { color: var(--ink); }
 
-main { max-width: 900px; margin: 0 auto; padding: 8px 24px 0; }
+main { max-width: var(--page-max); margin: 0 auto; padding: 8px 24px 0; }
 
 /* ---------- landing ---------- */
 @keyframes fade { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
@@ -238,66 +248,200 @@ main { max-width: 900px; margin: 0 auto; padding: 8px 24px 0; }
 
 .loading-note { color: var(--muted); font-family: var(--display); font-style: italic; }
 
-.choice-grid { display: grid; gap: 16px; grid-template-columns: repeat(2, 1fr); }
-@media (max-width: 620px) { .choice-grid { grid-template-columns: 1fr; } }
+/* =============================================================
+   Signature card  (.sig-card > .sig-front + .sig-back)
+   Spec component A. Derived from the Uiverse card:
+     - flat saturated fill, 10px radius -> 15px on hover
+     - big soft shadow, hover lifts + scale(1.2), springy
+     - bold (900) front face fades and collapses while the back
+       face grows in, rotating from rotate(90deg) scale(-1) to 0
+   Accents: teal | gold | lilac (rest fill, hover fill, ink on fill).
+   Every ink/fill pair is >= 4.5:1 (checked, see --sig-ink-hover).
+   ============================================================= */
 
-.choice-card {
+/* grid: >= 28px gaps so a scale(1.2) card never touches a neighbour */
+.sig-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 36px 32px;
+  padding: 14px 0 28px;
+}
+@media (max-width: 560px) { .sig-grid { gap: 16px; padding-top: 4px; } }
+
+/* ---- accents (tokens) ---- */
+.sig-card--teal  { --sig-rest: #67e1ff; --sig-hover: #6797ff; --sig-ink: #06232b; --sig-ink-hover: #06232b; --sig-glow: 43 184 217; }
+.sig-card--gold  { --sig-rest: #ffd36b; --sig-hover: #ff9f5a; --sig-ink: #2b1a02; --sig-ink-hover: #2b1a02; --sig-glow: 232 178 61; }
+.sig-card--lilac { --sig-rest: #c9b8ff; --sig-hover: #9d86ff; --sig-ink: #140a33; --sig-ink-hover: #140a33; --sig-glow: 142 120 224; }
+
+[data-theme="dark"] .sig-card--teal  { --sig-rest: #2bb8d9; --sig-hover: #4f7df0; --sig-ink: #06232b; --sig-ink-hover: #020c10; }
+[data-theme="dark"] .sig-card--gold  { --sig-rest: #e8b23d; --sig-hover: #e8843f; --sig-ink: #2b1a02; --sig-ink-hover: #2b1a02; }
+[data-theme="dark"] .sig-card--lilac { --sig-rest: #8e78e0; --sig-hover: #7058d6; --sig-ink: #140a33; --sig-ink-hover: #ffffff; }
+
+/* ---- base = static, fully readable layout (touch, narrow, reduced motion) ---- */
+.sig-card {
+  position: relative;
+  z-index: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 10px;
+  padding: 22px 20px;
+  border-radius: var(--sig-radius);
+  background-color: var(--sig-rest);
+  color: var(--sig-ink);
+  box-shadow: var(--shadow);
   text-align: left;
   text-decoration: none;
   cursor: pointer;
-  border: 1px solid var(--teal-100);
-  background: var(--card);
-  border-radius: var(--radius);
-  padding: 26px 24px;
-  box-shadow: var(--shadow);
-  display: flex; flex-direction: column; gap: 10px;
-  transition: transform .3s var(--ease-buttery), box-shadow .3s var(--ease-buttery), border-color .3s var(--ease-buttery);
-  border-left: 5px solid var(--teal-600);
-  font-family: inherit;
-  opacity: 0;
-  animation: grow-in .55s var(--ease-buttery) both;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color var(--sig-dur) ease, color var(--sig-dur) ease,
+              border-radius var(--sig-dur) ease, box-shadow var(--sig-dur) ease,
+              transform var(--sig-dur) var(--sig-spring);
+  animation: grow-in .55s var(--ease-buttery) backwards;   /* backwards: release the transform afterwards so hover works */
 }
-.choice-card--teal { border-left-color: var(--teal-600); border-color: var(--teal-100); }
-.choice-card--gold,
-.choice-card--amber { border-left-color: var(--gold); border-color: var(--amber-100); }
-.choice-card--lilac { border-left-color: var(--lilac-600); border-color: var(--lilac-100); }
-.choice-card:hover { transform: translateY(-3px); box-shadow: 0 10px 30px rgba(19, 78, 74, .12); }
-.choice-card:active { transform: translateY(-1px) scale(.99); transition-duration: .12s; }
+[data-theme="dark"] .sig-card {
+  box-shadow: var(--shadow), 0 0 18px rgb(var(--sig-glow) / .28);
+}
 
-.choice-verb {
+.sig-front,
+.sig-back { display: block; min-width: 0; }
+
+.sig-front {
   font-family: var(--display);
-  font-size: 1.4rem;
-  color: var(--teal-900);
+  font-weight: 900;
+  font-size: 1.35rem;
+  line-height: 1.12;
+  letter-spacing: -.01em;
+  overflow-wrap: break-word;
 }
-.choice-card--gold .choice-verb,
-.choice-card--amber .choice-verb { color: var(--gold); }
-.choice-card--lilac .choice-verb { color: var(--lilac-600); }
-.choice-desc { color: var(--muted); font-size: .95rem; font-family: var(--display); line-height: 1.5; }
+.sig-back {
+  font-family: var(--body);
+  font-size: .95rem;
+  line-height: 1.4;
+  text-wrap: pretty;
+}
 
-.form-error {
-  color: var(--error-text); font-size: .9rem;
-  background: var(--error-bg); border: 1px solid var(--error-border);
-  border-radius: 8px; padding: 10px 12px; grid-column: 1 / -1;
+.sig-card:focus-visible {
+  outline: 3px solid var(--ring);
+  outline-offset: 4px;
+  z-index: 5;
+  background-color: var(--sig-hover);
+  color: var(--sig-ink-hover);
+  border-radius: var(--sig-radius-hover);
+  box-shadow: var(--sig-shadow-hover);
+}
+[data-theme="dark"] .sig-card:focus-visible {
+  box-shadow: var(--shadow), var(--sig-shadow-hover), 0 0 32px rgb(var(--sig-glow) / .55);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  *, .choice-card, .hero-lead, .intro, .typing-cursor::after { animation: none !important; transition: none !important; }
+@media (hover: hover) {
+  .sig-card:not(.sig-card--disabled):hover {
+    z-index: 5;
+    background-color: var(--sig-hover);
+    color: var(--sig-ink-hover);
+    border-radius: var(--sig-radius-hover);
+    box-shadow: var(--sig-shadow-hover);
+  }
+  [data-theme="dark"] .sig-card:not(.sig-card--disabled):hover {
+    box-shadow: var(--shadow), var(--sig-shadow-hover), 0 0 32px rgb(var(--sig-glow) / .55);
+  }
 }
-.choice-card--disabled {
+@media (prefers-reduced-motion: no-preference) {
+  .sig-card:not(.sig-card--disabled):active { transform: scale(.97); transition-duration: .12s; }
+}
+
+/* ---- coming soon: keeps the badge, shows both faces, never hoverable ---- */
+.sig-card--disabled {
   cursor: not-allowed;
   opacity: .55;
   pointer-events: none;
 }
-.choice-card--disabled:hover { transform: none; box-shadow: var(--shadow); }
-
-.choice-badge {
+.sig-badge {
   align-self: flex-start;
+  margin-top: 4px;
   font-family: var(--body);
   font-size: .72rem;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: .04em;
-  color: var(--muted);
-  background: var(--teal-100);
-  border-radius: 999px;
+  letter-spacing: .06em;
+  color: var(--sig-rest);
+  background: var(--sig-ink);
+  border-radius: var(--radius-pill);
   padding: 3px 10px;
+}
+
+/* =============================================================
+   Flip mode: real hover + a motion-OK user + room for 190px cards.
+   Anything else (touch, narrow phone, reduced motion) keeps the
+   static layout above, so the description is never hidden.
+   ============================================================= */
+@media (hover: hover) and (min-width: 561px) and (prefers-reduced-motion: no-preference) {
+  .sig-card:not(.sig-card--disabled) {
+    aspect-ratio: 3 / 4;                 /* ~190 x 254 like the Uiverse card */
+    display: grid;
+    grid-template-rows: 1fr 0fr;         /* front fills; back collapsed */
+    gap: 0;
+    padding: 0;
+    overflow: hidden;
+    container-type: inline-size;         /* faces size their text from the card width (cqw) */
+    transition: background-color var(--sig-dur) ease, color var(--sig-dur) ease,
+                border-radius var(--sig-dur) ease, box-shadow var(--sig-dur) ease,
+                grid-template-rows var(--sig-dur) ease,
+                transform var(--sig-dur) var(--sig-spring),
+                z-index 0s linear var(--sig-dur);          /* stay on top while shrinking back */
+  }
+
+  .sig-card:not(.sig-card--disabled) .sig-front,
+  .sig-card:not(.sig-card--disabled) .sig-back {
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    border-radius: var(--sig-radius-hover);
+    padding-inline: 14px;
+    transition: opacity var(--sig-dur) ease, font-size var(--sig-dur) ease,
+                transform var(--sig-dur) ease, padding var(--sig-dur) ease;
+  }
+
+  .sig-card:not(.sig-card--disabled) .sig-front {
+    font-size: clamp(1.05rem, 10cqw, 1.8rem);
+    opacity: 1;
+  }
+  .sig-card:not(.sig-card--disabled) .sig-back {
+    font-size: 0;
+    opacity: 0;
+    padding-block: 0;
+    transform: rotate(90deg) scale(-1);
+  }
+
+  .sig-card:not(.sig-card--disabled):hover,
+  .sig-card:not(.sig-card--disabled):focus-visible {
+    grid-template-rows: 0fr 1fr;
+    transform: scale(var(--sig-scale));
+    z-index: 5;
+    transition-delay: 0s, 0s, 0s, 0s, 0s, 0s, 0s;
+  }
+  .sig-card:not(.sig-card--disabled):hover .sig-front,
+  .sig-card:not(.sig-card--disabled):focus-visible .sig-front {
+    opacity: 0;
+  }
+  .sig-card:not(.sig-card--disabled):hover .sig-back,
+  .sig-card:not(.sig-card--disabled):focus-visible .sig-back {
+    opacity: 1;
+    font-size: clamp(.92rem, 8cqw, 1.12rem);
+    padding-block: 12px;
+    transform: rotate(0deg) scale(1);
+  }
+}
+
+.form-error {
+  color: var(--error-text); font-size: .9rem;
+  background: var(--error-bg); border: 1px solid var(--error-border);
+  border-radius: var(--radius-sm); padding: 10px 12px; grid-column: 1 / -1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, .hero-lead, .intro, .typing-cursor::after { animation: none !important; transition: none !important; }
 }

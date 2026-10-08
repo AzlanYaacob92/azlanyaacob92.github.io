@@ -7,6 +7,7 @@
   'use strict';
 
   var THEME_KEY = 'theme';
+  var ACCENTS = { teal: 'teal', gold: 'gold', amber: 'gold', lilac: 'lilac' };
 
   function currentIsDark() {
     return document.documentElement.getAttribute('data-theme') === 'dark';
@@ -49,23 +50,27 @@
       } else {
         card.setAttribute('aria-disabled', 'true');
       }
-      card.className = 'choice-card choice-card--' + app.accent + (isLive ? '' : ' choice-card--disabled');
+
+      // Signature card (spec component A): .sig-card > .sig-front + .sig-back.
+      // 'amber' is the legacy name for the gold accent.
+      var accent = ACCENTS[app.accent] || 'teal';
+      card.className = 'sig-card sig-card--' + accent + (isLive ? '' : ' sig-card--disabled');
       card.style.animationDelay = (i * 0.08) + 's';
 
-      var verb = document.createElement('span');
-      verb.className = 'choice-verb';
-      verb.textContent = app.verb;
+      var front = document.createElement('span');
+      front.className = 'sig-front';
+      front.textContent = app.verb || app.name;
 
-      var desc = document.createElement('span');
-      desc.className = 'choice-desc';
-      desc.textContent = app.description;
+      var back = document.createElement('span');
+      back.className = 'sig-back';
+      back.textContent = app.description;
 
-      card.appendChild(verb);
-      card.appendChild(desc);
+      card.appendChild(front);
+      card.appendChild(back);
 
       if (!isLive) {
         var badge = document.createElement('span');
-        badge.className = 'choice-badge';
+        badge.className = 'sig-badge';
         badge.textContent = 'Coming soon';
         card.appendChild(badge);
       }
