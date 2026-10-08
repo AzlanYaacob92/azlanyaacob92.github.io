@@ -108,6 +108,30 @@
     });
   }
 
+  /* Change what `el` shows without a hard cut: a snapshot of the old content is
+     laid over it and faded away while `change` has already put the new content
+     in place. For anything redrawn from scratch (an SVG diagram, a canvas host). */
+  function crossfade(el, change) {
+    var parent = el && el.parentNode;
+    if (!parent || reduced() || typeof el.animate !== 'function') { change(); return Promise.resolve(); }
+    var ghost = el.cloneNode(true), box = el.getBoundingClientRect(), css;
+    var anchored = false;
+    try { anchored = global.getComputedStyle(parent).position !== 'static'; } catch (e) { /* no layout */ }
+    if (anchored) {
+      var pb = parent.getBoundingClientRect();
+      css = 'position:absolute;left:' + (box.left - pb.left - parent.clientLeft + parent.scrollLeft) + 'px;top:' +
+        (box.top - pb.top - parent.clientTop + parent.scrollTop) + 'px;';
+    } else {
+      css = 'position:fixed;left:' + box.left + 'px;top:' + box.top + 'px;';
+    }
+    ghost.removeAttribute('id');
+    ghost.setAttribute('aria-hidden', 'true');
+    ghost.style.cssText += ';' + css + 'width:' + box.width + 'px;height:' + box.height + 'px;margin:0;pointer-events:none;';
+    parent.insertBefore(ghost, el.nextSibling);
+    change();
+    return exit(ghost, { hide: false }).then(function () { if (ghost.parentNode) ghost.parentNode.removeChild(ghost); });
+  }
+
   /* Bring a list in one after another, --stagger apart.
      opts: enter() options plus { delay } before the first one. */
   function stagger(els, opts) {
@@ -214,7 +238,7 @@
 
   global.Motion = {
     reduced: reduced, dur: dur, ease: ease, easeMove: easeMove,
-    animate: animate, enter: enter, exit: exit, swap: swap, stagger: stagger,
+    animate: animate, enter: enter, exit: exit, swap: swap, crossfade: crossfade, stagger: stagger,
     to: to, draw: draw, tween: tween, timeline: timeline,
     scrollIntoView: scrollIntoView, scrollTop: scrollTop
   };
