@@ -139,6 +139,49 @@
       .then(function () { path.style.strokeDasharray = ''; });
   }
 
+  /* The token curves as functions, for values CSS cannot reach (a WebGL camera, a canvas). */
+  function curve(str) {
+    var m = /cubic-bezier\(([^)]+)\)/.exec(str), n = m ? m[1].split(',').map(Number) : [0.4, 0, 0.2, 1];
+    function at(a, b, t) { var u = 1 - t; return 3 * u * u * t * a + 3 * u * t * t * b + t * t * t; }
+    return function (x) {
+      if (x <= 0) return 0;
+      if (x >= 1) return 1;
+      var lo = 0, hi = 1, t = x;
+      for (var i = 0; i < 24; i++) {
+        var xt = at(n[0], n[2], t);
+        if (Math.abs(xt - x) < 1e-4) break;
+        if (xt < x) lo = t; else hi = t;
+        t = (lo + hi) / 2;
+      }
+      return at(n[1], n[3], t);
+    };
+  }
+
+  /* Drive your own values from 0 to 1 along a token curve:
+       Motion.tween({ duration: 'slow', easing: 'move', update: p => ..., done: () => ... })
+     easing is 'move' (the default) or 'ui'. Returns { cancel }. With reduced
+     motion, update(1) and done() run at once. */
+  function tween(opts) {
+    var stopped = false, id = 0, t0 = null;
+    var raf = global.requestAnimationFrame;
+    if (reduced() || typeof raf !== 'function') {
+      opts.update(1);
+      if (opts.done) opts.done();
+      return { cancel: function () {} };
+    }
+    var length = dur(opts.duration === undefined ? 'slow' : opts.duration);
+    var shape = curve(opts.easing === 'ui' ? ease() : easeMove());
+    function step(now) {
+      if (stopped) return;
+      if (t0 === null) t0 = now;
+      var x = Math.min(1, (now - t0) / length);
+      opts.update(shape(x));
+      if (x < 1) id = raf(step); else if (opts.done) opts.done();
+    }
+    id = raf(step);
+    return { cancel: function () { stopped = true; if (global.cancelAnimationFrame) global.cancelAnimationFrame(id); } };
+  }
+
   /* A cancellable run of timed steps: Motion.timeline().at(650, fn).at(1100, fn).
      With reduced motion every step runs straight away, in order. */
   function timeline() {
@@ -165,7 +208,7 @@
   global.Motion = {
     reduced: reduced, dur: dur, ease: ease, easeMove: easeMove,
     animate: animate, enter: enter, exit: exit, swap: swap, stagger: stagger,
-    to: to, draw: draw, timeline: timeline,
+    to: to, draw: draw, tween: tween, timeline: timeline,
     scrollIntoView: scrollIntoView, scrollTop: scrollTop
   };
 })(window);
