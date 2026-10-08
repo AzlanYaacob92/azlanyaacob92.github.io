@@ -342,14 +342,6 @@ h1, .site-title { margin: var(--sp-1) 0 var(--sp-3); }
 .eqgrid .eq-rhs, .eqgrid .eq-solo { justify-self: start; }
 .eqgrid sub, .eqgrid sup { font-size: .7em; }
 
-.eqgrid .typewipe {
-  --tw-steps: 24;
-  clip-path: inset(0 100% 0 0);
-  animation-name: typewipe;
-  animation-timing-function: steps(var(--tw-steps), end);
-  animation-fill-mode: forwards;
-}
-@keyframes typewipe { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
 @supports not (grid-template-columns: subgrid) {
   .eqgrid .eq-row { grid-template-columns: max-content max-content minmax(0, max-content); }
 }
@@ -422,5 +414,4 @@ h1, .site-title { margin: var(--sp-1) 0 var(--sp-3); }
 /* ---------------- reduced motion (design-system.css shortens durations globally) ---------------- */
 @media (prefers-reduced-motion: reduce) {
   .choice-card:hover, .btn:hover, .cell.on:hover, .theme-toggle:hover { transform: none !important; }
-  .eqgrid .typewipe { clip-path: none; animation: none; }
 }

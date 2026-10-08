@@ -19,7 +19,7 @@ try{var s=localStorage.getItem('theme'); if(s==='dark'||s==='light') document.do
 </head>
 <body>
 
-<button id="theme-toggle" class="theme-toggle" aria-label="Switch to dark mode" type="button">🌙</button>
+<button id="theme-toggle" class="theme-toggle" aria-label="Switch to dark mode" type="button" data-icon="moon"></button>
 
 <header class="site-header">
   <span class="eyebrow">Chemistry Learning Suite</span>
@@ -35,6 +35,8 @@ try{var s=localStorage.getItem('theme'); if(s==='dark'||s==='light') document.do
   </div>
 </main>
 
+<script src="icons.js"></script>
+<script src="motion.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

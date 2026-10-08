@@ -10,6 +10,25 @@
    below. Every pairing marked ✓ was checked against WCAG 2.1 AA.
    ============================================================= */
 
+/* The three faces, self-hosted (SIL Open Font License 1.1; licences in fonts/).
+   Latin subset: characters outside it (subscript digits, most arrows) fall
+   through to the system fonts further down each stack. */
+@font-face {
+  font-family: "Nunito";
+  src: url("fonts/nunito-latin-wght-normal.woff2") format("woff2");
+  font-weight: 200 1000; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "Atkinson Hyperlegible Next";
+  src: url("fonts/atkinson-hyperlegible-next-latin-wght-normal.woff2") format("woff2");
+  font-weight: 200 800; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "Atkinson Hyperlegible Mono";
+  src: url("fonts/atkinson-hyperlegible-mono-latin-wght-normal.woff2") format("woff2");
+  font-weight: 200 800; font-style: normal; font-display: swap;
+}
+
 :root {
   color-scheme: light;
 
@@ -98,34 +117,29 @@
   /* =============================================================
      TYPE — professional, plainly readable, zero network dependency.
 
-     Three voices, no webfonts: the app must render identically on a
-     school machine with no connection. Softness comes from the letterform
-     itself, not a filter on top of it — so the stacks lead with genuinely
-     rounded, humanist-terminal system faces (Candara, Calibri, and on
-     Apple platforms the `ui-rounded` generic, which resolves to SF Pro
-     Rounded) before falling back to Segoe UI / the platform UI face,
-     where the same softening comes instead from lighter tracking, a
-     touch more line-height, and weights that never lean on 700 for
-     ordinary hierarchy.
+     Three voices, each a variable font that ships in fonts/ beside this
+     file, so the app looks the same on a Chromebook, a phone and a
+     Windows laptop, and still renders with no connection. The old
+     system stacks stay behind them as the fallback while a font loads.
 
-     Georgia was dropped: it is readable but reads bookish, and its
-     small numerals fight the calculation lines this app is built on.
+     Softness comes from the letterform itself: Nunito's rounded
+     terminals for headings (it is also the face of the wordmark), and
+     Atkinson Hyperlegible for everything read closely, because it keeps
+     I, l and 1, and O and 0, apart: exactly the characters a chemical
+     formula cannot afford to blur.
      ============================================================= */
 
-  /* headings and any type ≥ 20px — Candara's flared, calligraphic
-     strokes read considerably softer than Segoe UI's cut corners */
-  --font-display: Candara, "ui-rounded", "Segoe UI Variable Display",
+  /* headings and any type ≥ 20px */
+  --font-display: "Nunito", Candara, "ui-rounded", "Segoe UI Variable Display",
                   Calibri, "Segoe UI", -apple-system, system-ui, Roboto,
                   "Helvetica Neue", Arial, sans-serif;
-  /* body, labels, controls — everything below 20px. Calibri's rounded
-     terminals and open apertures keep small text friendly, not clinical */
-  --font-body: Calibri, "ui-rounded", "Segoe UI Variable Text",
+  /* body, labels, controls — everything below 20px */
+  --font-body: "Atkinson Hyperlegible Next", Calibri, "ui-rounded", "Segoe UI Variable Text",
                "Segoe UI", -apple-system, system-ui, Roboto,
                "Helvetica Neue", Arial, sans-serif;
   /* the second voice, and it earns its keep: quantities, units,
-     equations, anything that must align in a column. Consolas over
-     Cascadia here too — its curves are noticeably rounder */
-  --font-mono: Consolas, "Cascadia Mono", "SFMono-Regular", ui-monospace,
+     equations, anything that must align in a column */
+  --font-mono: "Atkinson Hyperlegible Mono", Consolas, "Cascadia Mono", "SFMono-Regular", ui-monospace,
                Menlo, "JetBrains Mono", monospace;
 
   /* weights — one step apart, capped at 600: nothing needs 700 to read
@@ -410,6 +424,13 @@ body {
   position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
   overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
 }
+
+/* ---------- icons (icons.js): take the text colour, scale with the type ---------- */
+.icon {
+  width: 1.25em; height: 1.25em; flex: none; vertical-align: -0.22em;
+  fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round;
+}
+[data-icon] { display: inline-flex; }
 
 /* ---------- theme toggle: fixed, top-right, in every app ---------- */
 .theme-toggle {

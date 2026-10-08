@@ -33,7 +33,7 @@
     const dark = isDark();
     toggleBtn.setAttribute('aria-pressed', String(dark));
     toggleBtn.setAttribute('aria-label', dark ? 'Switch to light mode' : 'Switch to dark mode');
-    if (icon) icon.textContent = dark ? '☀️' : '🌙';
+    if (icon) icon.innerHTML = Icons.svg(dark ? 'sun' : 'moon');
   }
 
   reflect(); // match whatever the inline head script already applied
@@ -110,26 +110,14 @@
     return `<span class="eqgrid" style="grid-template-columns:max-content max-content minmax(0, max-content)">${rows}</span>`;
   }
 
+  /* Reveal for a math grid: the working arrives one line at a time, top to
+     bottom, at reading pace. The same reveal is used by every trainer. */
   function typewriterMathGrid(el, html) {
     el.innerHTML = mathGrid(html);
-    if (Motion.reduced()) return;
-    try {
-      const grid = el.querySelector('.eqgrid');
-      if (!grid) return;
-      const rowsEls = Array.from(grid.querySelectorAll('.eq-row'));
-      let delay = 0;
-      rowsEls.forEach(rowEl => {
-        const len = Math.max(rowEl.textContent.length, 4);
-        const steps = Math.max(10, Math.min(60, Math.round(len * 1.4)));
-        const duration = steps * 26; // ms — consistent typing speed regardless of line length
-        rowEl.classList.add('typewipe');
-        rowEl.style.setProperty('--tw-steps', steps);
-        rowEl.style.animationDuration = duration + 'ms';
-        rowEl.style.animationDelay = delay + 'ms';
-        delay += duration + 160;
-      });
-    } catch (e) { /* content already shown; animation is best-effort */ }
+    const rows = el.querySelectorAll('.eqgrid .eq-row');
+    rows.forEach((row, i) => Motion.enter(row, { y: 4, duration: 'base', delay: i * LINE_GAP_MS }));
   }
+  const LINE_GAP_MS = 180;   // pause between lines of working
 
   /* ---------------- periodic table layout (periods 1–6) ---------------- */
   const PT = [

@@ -42,7 +42,7 @@
   function updateToggleIcon(btn) {
     var dark = currentIsDark();
     var label = dark ? 'Switch to light mode' : 'Switch to dark mode';
-    btn.textContent = dark ? '☀️' : '🌙';
+    btn.innerHTML = Icons.svg(dark ? 'sun' : 'moon');
     btn.setAttribute('aria-label', label);
     btn.setAttribute('title', label);
   }
@@ -63,8 +63,13 @@
     }
   }
 
+  var shownApps = '';
   function renderApps(apps) {
     var grid = document.getElementById('app-grid');
+    var key = JSON.stringify(apps);
+    if (key === shownApps) return;          // the refresh from apps.json usually changes nothing
+    var first = shownApps === '';
+    shownApps = key;
     grid.innerHTML = '';
 
     if (!Array.isArray(apps) || apps.length === 0) {
@@ -99,6 +104,7 @@
       card.appendChild(chip);
       grid.appendChild(card);
     });
+    if (first) Motion.stagger(grid.children, { y: 12 });
   }
 
   // Cards first (synchronous, no hidden state), then quietly refresh from apps.json.
