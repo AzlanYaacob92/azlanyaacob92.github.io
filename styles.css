@@ -4,60 +4,9 @@
    design-system.css (linked first). No colour values live here.
    ============================================================= */
 
-* { box-sizing: border-box; }
-
-html { color-scheme: light; }
-:root[data-theme="dark"] { color-scheme: dark; }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) { color-scheme: dark; }
-}
-
-body {
-  margin: 0;
-  font: var(--t-body);
-  color: var(--ink);
-  background: var(--bg);
-  -webkit-font-smoothing: antialiased;
-  transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
-}
-
-:focus-visible { outline: none; box-shadow: var(--focus-ring); }
-
-/* ---------------- theme toggle ---------------- */
-.theme-toggle {
-  position: fixed;
-  top: var(--sp-4);
-  right: var(--sp-4);
-  z-index: 50;
-  width: 44px;
-  height: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--r-pill);
-  border: 1px solid var(--line-strong);
-  background: var(--card);
-  color: var(--ink);
-  font-size: 1.15rem;
-  line-height: 1;
-  cursor: pointer;
-  box-shadow: var(--shadow-1);
-  transition: background var(--dur) var(--ease), transform var(--dur) var(--ease),
-              box-shadow var(--dur) var(--ease), border-color var(--dur) var(--ease);
-}
-.theme-toggle:hover { background: var(--primary-soft); border-color: var(--primary); transform: translateY(-1px); }
-.theme-toggle:focus-visible { box-shadow: var(--focus-ring); }
 
 /* ---------------- header / footer ---------------- */
 .site-header { max-width: 900px; margin: 0 auto; padding: var(--sp-7) var(--sp-5) var(--sp-2); }
-.eyebrow {
-  display: inline-block;
-  font: var(--t-label);
-  text-transform: uppercase;
-  letter-spacing: var(--tr-label);
-  color: var(--primary-soft-ink);
-  margin: 0;
-}
 .site-title { margin: var(--sp-2) 0 0; display: flex; align-items: center; }
 .site-logo { display: block; height: 112px; max-width: 100%; width: auto; }
 .site-logo--dark { display: none; }

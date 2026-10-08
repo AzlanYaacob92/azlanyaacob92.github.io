@@ -11,6 +11,8 @@
    ============================================================= */
 
 :root {
+  color-scheme: light;
+
   /* ---------- lavender ramp (50–400 are the source swatches) ---------- */
   --lav-50:  #ebe0ff;  /* Lavender Veil     */
   --lav-100: #dac7ff;  /* Periwinkle        */
@@ -71,6 +73,10 @@
 
   --focus-ring: 0 0 0 3px rgba(122, 82, 196, .38);
 
+  /* ---------- text roles that take a different step in dark mode ---------- */
+  --link:  var(--primary-soft-ink);     /* links, eyebrows, ghost-button text */
+  --title: var(--lav-700);              /* the page <h1> */
+
   /* ---------- elevation: lavender-tinted, never neutral grey ---------- */
   --shadow-1: 0 1px 2px rgba(46, 27, 82, .07);
   --shadow-2: 0 2px 4px rgba(46, 27, 82, .06), 0 10px 28px rgba(46, 27, 82, .08);
@@ -85,6 +91,9 @@
   /* ---------- 4px spacing scale ---------- */
   --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px; --sp-4: 16px;
   --sp-5: 24px; --sp-6: 32px; --sp-7: 48px; --sp-8: 64px;
+
+  /* ---------- controls: one height for every button, field and toggle ---------- */
+  --control-h: 44px;
 
   /* =============================================================
      TYPE — professional, plainly readable, zero network dependency.
@@ -178,6 +187,10 @@
    the 900 step becomes the room. Same token names throughout.
    ============================================================= */
 [data-theme="dark"] {
+  color-scheme: dark;
+  --link:  var(--primary);
+  --title: var(--ink);
+
   --ink:   #ebe0ff;   /* ✓ 14.8 on --bg */
   --ink-2: #dac7ff;
   --muted: #a79fc0;   /* ✓ 7.4 */
@@ -222,6 +235,7 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
+    --link: var(--primary); --title: var(--ink);
     --ink: #ebe0ff; --ink-2: #dac7ff; --muted: #a79fc0; --faint: #7c7496;
     --line: #2a2140; --line-strong: #3d3157;
     --bg: #151021; --bg-tint: #1d1630; --card: #1d1630; --card-2: #2a2140;
@@ -248,7 +262,7 @@
    These apply the tokens above so headings, running text, and
    quantities look right by default, not only inside .ds-* wrappers. */
 h1, h2, h3, h4 { margin: 0; text-wrap: balance; color: var(--ink-2); }
-h1 { font: var(--t-display); letter-spacing: var(--tr-display); }
+h1 { font: var(--t-display); letter-spacing: var(--tr-display); color: var(--title); }
 h2 { font: var(--t-h1); letter-spacing: var(--tr-heading); }
 h3 { font: var(--t-h2); letter-spacing: var(--tr-heading); }
 h4 { font: var(--t-h3); }
@@ -313,9 +327,8 @@ small, .ds-caption { font: var(--t-small); color: var(--muted); }
 
 .ds-label {
   font: var(--t-label);
-  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: .08em;
+  letter-spacing: var(--tr-label);
   color: var(--muted);
 }
 
@@ -361,6 +374,233 @@ small, .ds-caption { font: var(--t-small); color: var(--muted); }
 .ds-note--danger { border-left-color: var(--danger); background: var(--danger-soft); }
 .ds-note--warn   { border-left-color: var(--warn);   background: var(--warn-soft); }
 
+/* =============================================================
+   suite shell — the parts every Chemculator app shares.
+
+   These use the class names the apps already carry in their markup
+   (.theme-toggle, .btn, .seg, .choice-card ...), so an app gets them
+   by linking this file and NOT redefining them. An app's own
+   styles.css should hold only what is specific to that app: its
+   layout, its data colours, its simulation.
+
+   This file is copied into each repo. Edit the canonical copy and
+   run design-system/sync.js — never edit a copy.
+   ============================================================= */
+
+/* ---------- base ---------- */
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+body {
+  margin: 0;
+  font: var(--t-body);
+  color: var(--ink);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  transition: background-color var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+
+/* focus: the ring token plus a solid outline, so it holds 3:1 on any surface */
+:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; box-shadow: var(--focus-ring); }
+
+.sr-only {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+/* ---------- theme toggle: fixed, top-right, in every app ---------- */
+.theme-toggle {
+  position: fixed; top: var(--sp-4); right: var(--sp-4); z-index: 50;
+  width: var(--control-h); height: var(--control-h); padding: 0;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--line-strong); border-radius: var(--r-pill);
+  background: var(--card); color: var(--ink);
+  font-size: 1.15rem; line-height: 1; cursor: pointer;
+  box-shadow: var(--shadow-1);
+  transition: background-color var(--dur) var(--ease), border-color var(--dur) var(--ease),
+              transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+}
+.theme-toggle:hover { background: var(--primary-soft); border-color: var(--primary); transform: translateY(-1px); }
+.theme-toggle:active { transform: none; transition-duration: var(--dur-fast); }
+.theme-toggle:focus-visible { box-shadow: var(--shadow-1), var(--focus-ring); }
+
+/* ---------- header: home link, brand mark, eyebrow, title ---------- */
+.top-links { display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-5); margin-bottom: var(--sp-4); }
+@media (max-width: 1040px) { .top-links { padding-right: 60px; } }   /* keep the fixed theme toggle clear */
+
+.home-link, .back-link {
+  display: inline-block; color: var(--link); text-decoration: none;
+  font: var(--t-body-strong); border-radius: var(--r-sm);
+}
+.home-link:hover, .back-link:hover { text-decoration: underline; text-underline-offset: 3px; }
+/* .back-link is usually a <button> that steps back inside the app */
+.back-link { background: none; border: 0; cursor: pointer; padding: var(--sp-2) 0; margin: var(--sp-1) 0 var(--sp-4); }
+
+.brand-mark { display: block; width: fit-content; margin: 0 0 var(--sp-2); line-height: 0; }
+.brand-mark img { height: 48px; width: auto; }
+.brand-mark__img--light { display: block; }
+.brand-mark__img--dark { display: none; }
+:root[data-theme="dark"] .brand-mark__img--light { display: none; }
+:root[data-theme="dark"] .brand-mark__img--dark { display: block; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .brand-mark__img--light { display: none; }
+  :root:not([data-theme="light"]) .brand-mark__img--dark { display: block; }
+}
+
+.eyebrow {
+  display: inline-block; margin: 0; max-width: none;
+  font: var(--t-label); text-transform: uppercase; letter-spacing: var(--tr-label);
+  color: var(--link);
+}
+
+/* ---------- panels ---------- */
+.card, .prompt-card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: var(--sp-5);
+  box-shadow: var(--shadow-2);
+}
+
+/* ---------- buttons: ghost by default, one primary per view ---------- */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-2);
+  min-height: var(--control-h); padding: 10px 20px;
+  font: var(--t-body-strong); line-height: 1.3;
+  border: 1px solid var(--line-strong); border-radius: var(--r-pill);
+  background: transparent; color: var(--link);
+  cursor: pointer;
+  transition: background-color var(--dur) var(--ease), color var(--dur) var(--ease),
+              border-color var(--dur) var(--ease), transform var(--dur) var(--ease),
+              box-shadow var(--dur) var(--ease);
+}
+.btn:hover { background: var(--bg-tint); }
+.btn:active { transform: translateY(1px); transition-duration: var(--dur-fast); }
+
+.btn--primary { background: var(--primary); border-color: transparent; color: var(--primary-ink); }
+.btn--primary:hover { background: var(--primary-hover); }
+.btn--accent { background: var(--accent); border-color: transparent; color: var(--accent-ink); }
+.btn--accent:hover { background: var(--accent-hover); }
+.btn--soft { background: var(--primary-soft); border-color: transparent; color: var(--primary-soft-ink); }
+.btn--soft:hover { background: var(--card-2); border-color: var(--primary); }
+
+.btn:disabled, .btn[aria-disabled="true"] { opacity: .5; cursor: not-allowed; transform: none; }
+
+/* ---------- fields ---------- */
+.select, .num-input, .text-input {
+  min-height: var(--control-h); padding: 10px 14px; max-width: 100%;
+  font: var(--t-body); color: var(--ink);
+  background: var(--card);
+  border: 1px solid var(--line-strong); border-radius: var(--r-md);
+  transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+}
+.select { cursor: pointer; }
+.num-input { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.select:hover, .num-input:hover, .text-input:hover { border-color: var(--primary); }
+.select:focus, .num-input:focus, .text-input:focus {
+  outline: none; border-color: var(--primary); box-shadow: var(--focus-ring);
+}
+.num-input::placeholder, .text-input::placeholder { color: var(--faint); }
+.select option, .select optgroup { background: var(--card); color: var(--ink); }
+.select:disabled, .num-input:disabled, .text-input:disabled { opacity: .5; cursor: not-allowed; }
+
+.form-error {
+  margin: var(--sp-3) 0 0; padding: var(--sp-3) var(--sp-4); max-width: none;
+  font: var(--t-body); color: var(--danger);
+  background: var(--danger-soft);
+  border-left: 3px solid var(--danger); border-radius: 0 var(--r-md) var(--r-md) 0;
+}
+
+/* ---------- segmented control ----------
+   A recessed tray; the chosen segment is raised in soft lavender with a
+   1px --primary ring, so state is never carried by colour alone.
+   Children are either <button>s (mark the chosen one .active or
+   aria-pressed="true") or <label>s wrapping a radio input.
+   .seg--strong fills the chosen segment — use it for the ONE control
+   that drives the view. .seg--wide stretches to the container. */
+.seg {
+  display: inline-flex; flex-wrap: wrap; gap: 3px; padding: 3px;
+  border: 1px solid var(--line-strong);
+  border-radius: calc(var(--control-h) / 2);
+  background: var(--bg-tint);
+}
+.seg > button, .seg > label {
+  position: relative; flex: 0 1 auto;
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: calc(var(--control-h) - 8px); padding: 6px var(--sp-4);
+  border: 0; border-radius: var(--r-pill);
+  background: transparent; color: var(--muted);
+  font: var(--t-body-strong); line-height: 1.3; text-align: center;
+  cursor: pointer;
+  transition: background-color var(--dur) var(--ease), color var(--dur) var(--ease),
+              box-shadow var(--dur) var(--ease);
+}
+.seg > button:hover, .seg > label:hover { color: var(--ink); }
+.seg > button.active, .seg > button[aria-pressed="true"], .seg > label:has(input:checked) {
+  background: var(--primary-soft); color: var(--primary-soft-ink);
+  box-shadow: inset 0 0 0 1px var(--primary);
+}
+.seg--strong > button.active, .seg--strong > button[aria-pressed="true"], .seg--strong > label:has(input:checked) {
+  background: var(--primary); color: var(--primary-ink); box-shadow: none;
+}
+/* the native radio stays focusable and accessible, but is visually hidden */
+.seg > label > input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.seg > label > input:focus-visible { outline: none; box-shadow: none; }
+.seg > label:focus-within { outline: 2px solid var(--primary); outline-offset: 2px; }
+.seg--wide { display: flex; width: 100%; }
+.seg--wide > button, .seg--wide > label { flex: 1 1 auto; }
+
+/* ---------- choice cards: soft surfaces, role shown by the leading edge ---------- */
+.choice-card {
+  --edge: var(--primary);
+  --wash: var(--primary-soft);
+  --wash-ink: var(--primary-soft-ink);
+  position: relative; z-index: 0;
+  display: flex; flex-direction: column; gap: var(--sp-2);
+  appearance: none; text-align: left; cursor: pointer;
+  padding: var(--sp-5);
+  border: 1px solid var(--line-strong);
+  border-left: 4px solid var(--edge);
+  border-radius: var(--r-lg);
+  background: var(--wash); color: var(--ink);
+  font: inherit;
+  box-shadow: var(--shadow-2);
+  -webkit-tap-highlight-color: transparent;
+  transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease),
+              background-color var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+.choice-card--lav   { --edge: var(--primary); --wash: var(--primary-soft); --wash-ink: var(--primary-soft-ink); }
+.choice-card--grn   { --edge: var(--accent);  --wash: var(--accent-soft);  --wash-ink: var(--accent-soft-ink); }
+.choice-card--plain { --edge: var(--line-strong); --wash: var(--card); --wash-ink: var(--primary-soft-ink); }
+.choice-card:focus-visible { box-shadow: var(--shadow-2), var(--focus-ring); z-index: 5; }
+@media (hover: hover) {
+  .choice-card:hover { z-index: 5; transform: translateY(-3px); box-shadow: var(--shadow-3); }
+}
+.choice-card:active { transform: translateY(0); transition-duration: var(--dur-fast); }
+.choice-card.active { z-index: 2; box-shadow: var(--shadow-2), 0 0 0 2px var(--primary); }
+.choice-verb { font: var(--t-h2); letter-spacing: var(--tr-heading); color: var(--wash-ink); }
+.choice-desc { font: var(--t-body); color: var(--ink); }
+
+/* ---------- entrances and step changes ----------
+   One vocabulary for the wizard apps: things fade up as they arrive,
+   cards grow in from 92%, and a step leaving is quicker than the one
+   arriving. */
+@keyframes fade    { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes grow-in { from { opacity: 0; transform: scale(.92); } to { opacity: 1; transform: scale(1); } }
+@keyframes pan-in-right  { from { opacity: 0; } to { opacity: 1; } }
+@keyframes pan-in-left   { from { opacity: 0; } to { opacity: 1; } }
+@keyframes pan-out-left  { from { opacity: 1; } to { opacity: 0; } }
+@keyframes pan-out-right { from { opacity: 1; } to { opacity: 0; } }
+.anim-pan-in-right  { animation: pan-in-right var(--dur-slow) var(--ease); }
+.anim-pan-in-left   { animation: pan-in-left var(--dur-slow) var(--ease); }
+.anim-pan-out-left  { animation: pan-out-left var(--dur) var(--ease) forwards; }
+.anim-pan-out-right { animation: pan-out-right var(--dur) var(--ease) forwards; }
+.anim-hero-in { animation: pan-in-right var(--dur-slow) var(--ease) both; }
+.anim-grow-in { animation: grow-in var(--dur-slow) var(--ease) both; }
+
 @media (prefers-reduced-motion: reduce) {
-  * { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+  *, *::before, *::after {
+    animation-duration: .01ms !important; transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
