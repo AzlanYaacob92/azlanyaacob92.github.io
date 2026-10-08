@@ -68,17 +68,7 @@ body {
   :root:not([data-theme="light"]) .site-logo--dark { display: block; }
 }
 
-main { max-width: 900px; margin: 0 auto; padding: var(--sp-5) var(--sp-5) 0; }
-
-.site-footer {
-  max-width: 900px;
-  margin: var(--sp-7) auto;
-  padding: var(--sp-4) var(--sp-5) 0;
-  color: var(--muted);
-  font: var(--t-small);
-  border-top: 1px solid var(--line);
-}
-.site-footer b { color: var(--ink); font-weight: var(--w-semi); }
+main { max-width: 900px; margin: 0 auto; padding: var(--sp-5) var(--sp-5) var(--sp-7); }
 
 /* ---------------- app cards ---------------- */
 .card-grid {
@@ -130,8 +120,7 @@ main { max-width: 900px; margin: 0 auto; padding: var(--sp-5) var(--sp-5) 0; }
 @media (max-width: 600px) {
   .site-header { padding: var(--sp-6) var(--sp-4) var(--sp-2); padding-right: 72px; }
   .site-logo { height: 88px; }
-  main { padding: var(--sp-4) var(--sp-4) 0; }
-  .site-footer { padding: var(--sp-4) var(--sp-4) 0; }
+  main { padding: var(--sp-4) var(--sp-4) var(--sp-6); }
 }
 
 @media (prefers-reduced-motion: reduce) {
