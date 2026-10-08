@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Chemculator">
+<title>Chemculator</title>
+<rect width="512" height="512" rx="112" fill="#1B5FE8"/>
+<g transform="translate(58.20 47.15) scale(2.15)">
+<path d="M70 18 V72 L26 144 C16 160 22 178 42 178 H146 C166 178 172 160 162 144 L134 104" fill="none" stroke="#FFFFFF" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="132" cy="52" r="32" fill="#19D3A2" stroke="#FFFFFF" stroke-width="8"/>
+<path d="M132 38 V66 M118 52 H146" stroke="#08224A" stroke-width="9" stroke-linecap="round" fill="none"/>
+</g>
+</svg>

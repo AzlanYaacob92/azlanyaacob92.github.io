@@ -527,3 +527,14 @@ h1, .site-title { margin: var(--sp-1) 0 var(--sp-3); color: var(--ink-2); }
   .choice-card:hover, .btn:hover, .cell.on:hover, .theme-toggle:hover { transform: none !important; }
   .eqgrid .typewipe { clip-path: none; animation: none; }
 }
+
+/* ---- Chemculator brand mark (see branding/README.md) ---- */
+.brand-mark { display: block; width: fit-content; margin: 0 0 var(--sp-2, 8px); line-height: 0; }
+.brand-mark img { display: block; height: 48px; width: auto; }
+.brand-mark__img--dark { display: none; }
+:root[data-theme="dark"] .brand-mark__img--light { display: none; }
+:root[data-theme="dark"] .brand-mark__img--dark { display: block; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .brand-mark__img--light { display: none; }
+  :root:not([data-theme="light"]) .brand-mark__img--dark { display: block; }
+}

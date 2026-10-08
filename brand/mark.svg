@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="4 0 176 198" width="176" height="198" role="img" aria-label="Chemculator">
+<title>Chemculator</title>
+<path d="M33 134 C52 124 66 142 88 134 S128 126 155 134 L162 144 C172 160 166 178 146 178 H42 C22 178 16 160 26 144 Z" fill="#7AA7F7"/>
+<path d="M44.2 144.2 L51.8 151.8 M51.8 144.2 L44.2 151.8" fill="none" stroke="#FFFFFF" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M92.5 147 H103.5" fill="none" stroke="#FFFFFF" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M131.5 152 H140.5" fill="none" stroke="#FFFFFF" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M79.5 154 C77 153.2 71.8 153.8 71.8 157 C71.8 160.2 76.5 160.6 78.8 156.2 M79.5 154 C79 157 79.4 159.6 81.2 160.2" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M109.5 166 V157 C109.5 154 115.5 153.8 115.5 156.8 C115.5 159 112 159.6 110.5 159.6 C116 159.6 116.8 165 112.5 165.5 C111 165.6 109.5 164.5 109.5 163" fill="none" stroke="#FFFFFF" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M59.4 166 H64.6 M62 163.4 V168.6" fill="none" stroke="#FFFFFF" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M126.5 164.2 H133.5 M126.5 167.8 H133.5" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="98" cy="141.2" r="1.9" fill="#FFFFFF"/>
+<circle cx="98" cy="152.8" r="1.9" fill="#FFFFFF"/>
+<path d="M70 18 V72 L26 144 C16 160 22 178 42 178 H146 C166 178 172 160 162 144 L134 104" fill="none" stroke="#1B5FE8" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="132" cy="52" r="32" fill="#19D3A2" stroke="#1B5FE8" stroke-width="8"/>
+<path d="M132 38 V66 M118 52 H146" stroke="#08224A" stroke-width="9" stroke-linecap="round" fill="none"/>
+</svg>
