@@ -90,13 +90,20 @@
       });
   }
 
-  /* Step change: `from` leaves, `update` runs, `to` arrives. from and to may
-     be the same element refreshed in place; from may be null. */
+  /* Step change: `from` leaves quickly, `update` runs, then `to` arrives,
+     growing or shrinking from the height of the card it replaces so the page
+     below does not jump. from and to may be the same element refreshed in
+     place; from may be null. */
   function swap(from, to, update, opts) {
-    return exit(from, opts && opts.exit).then(function () {
+    var h0 = from && !reduced() ? from.offsetHeight : 0;
+    return exit(from, { duration: 'fast' }).then(function () {
       if (update) update();
       if (!to) return;
       to.hidden = false;
+      var h1 = h0 ? to.offsetHeight : 0;
+      if (h1 && Math.abs(h1 - h0) > 1) {
+        run(to, [{ height: h0 + 'px', overflow: 'hidden' }, { height: h1 + 'px', overflow: 'hidden' }], { duration: 'slow' });
+      }
       return enter(to, opts && opts.enter);
     });
   }

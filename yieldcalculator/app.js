@@ -68,7 +68,7 @@
   // runs, then `toEl` arrives. fromEl and toEl may be the same element,
   // refreshed in place.
   function panTransition(fromEl, toEl, direction, updateFn) {
-    Motion.swap(fromEl, toEl, updateFn);
+    return Motion.swap(fromEl, toEl, updateFn);
   }
 
   /* ---------------- stacked-equation grid ----------------
@@ -189,8 +189,8 @@
     const from = cards[current], to = cards[key];
     current = key;
     backLink.hidden = (key === 'landing');
-    panTransition(from === to ? null : from, to, direction || 'forward', updateFn);
-    if (to && key !== 'landing') setTimeout(() => Motion.scrollIntoView(to), 60);
+    panTransition(from === to ? null : from, to, direction || 'forward', updateFn)
+      .then(() => { if (to && key !== 'landing' && current === key) Motion.scrollIntoView(to); });
   }
 
   function resetAll() {
@@ -222,14 +222,33 @@
   /* ---------------- picker: periodic table ---------------- */
   const ptable = document.getElementById('ptable');
   PT.forEach(([sym, z, p, g]) => {
-    const cell = document.createElement('div');
+    const cell = document.createElement('button');
     const on = ACTIVE.has(sym);
+    cell.type = 'button';
     cell.className = 'cell ' + (on ? 'on' : 'off');
     cell.style.gridColumn = g; cell.style.gridRow = p;
-    cell.dataset.sym = sym;
+    cell.dataset.sym = sym; cell.dataset.col = g; cell.dataset.row = p;
     cell.innerHTML = '<span class="z">' + z + '</span>' + sym;
-    if (on) cell.addEventListener('click', () => toggleEl(sym));
+    cell.setAttribute('aria-label', sym + ', atomic number ' + z + (on ? '' : ', no reactions listed'));
+    if (on) { cell.setAttribute('aria-pressed', 'false'); cell.addEventListener('click', () => toggleEl(sym)); }
+    else cell.disabled = true;
     ptable.appendChild(cell);
+  });
+  // arrow keys step to the nearest element that has reactions, in that direction
+  ptable.addEventListener('keydown', e => {
+    const dir = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key];
+    const from = e.target.closest ? e.target.closest('.cell') : null;
+    if (!dir || !from) return;
+    const c0 = +from.dataset.col, r0 = +from.dataset.row;
+    let best = null, bestScore = Infinity;
+    ptable.querySelectorAll('.cell:not(:disabled)').forEach(c => {
+      const dc = +c.dataset.col - c0, dr = +c.dataset.row - r0;
+      const along = dc * dir[0] + dr * dir[1], across = Math.abs(dir[0] ? dr : dc);
+      if (along <= 0) return;
+      const score = along + across * 20;
+      if (score < bestScore) { bestScore = score; best = c; }
+    });
+    if (best) { e.preventDefault(); best.focus(); }
   });
   const ftag = document.createElement('div');
   ftag.className = 'ftag'; ftag.style.gridRow = 7; ftag.textContent = 'f-block omitted';
@@ -276,6 +295,7 @@
     document.querySelectorAll('.cell.on, .cell.sel').forEach(c => {
       const picked = state.els.has(c.dataset.sym);
       c.classList.toggle('sel', picked);
+      c.setAttribute('aria-pressed', String(picked));
       if (!picked) c.classList.add('on');
     });
     const sc = document.getElementById('selchips');
@@ -287,14 +307,14 @@
     const list = document.getElementById('list');
     const count = document.getElementById('count');
 
-    const notListedCard = `<div class="rx rx--custom" id="rx-not-listed">
-      <div class="idx">+</div>
-      <div class="rxbody">
-        <div class="eq">My reaction is not listed</div>
-        <div class="meta"><span class="cond">Build your own equation and use the same working</span></div>
-      </div>
-      <div class="pick">Build →</div>
-    </div>`;
+    const notListedCard = `<button type="button" class="rx rx--custom" id="rx-not-listed">
+      <span class="idx" aria-hidden="true">+</span>
+      <span class="rxbody">
+        <span class="eq">My reaction is not listed</span>
+        <span class="meta"><span class="cond">Build your own equation and use the same working</span></span>
+      </span>
+      <span class="pick">Build →</span>
+    </button>`;
     function wireNotListed() {
       const el = document.getElementById('rx-not-listed');
       if (el) el.addEventListener('click', goToCustomSetup);
@@ -321,18 +341,18 @@
     }
     list.innerHTML = out.map(q => {
       const c = CAT[q.cat];
-      return `<div class="rx" data-id="${q.id}">
-        <div class="idx">${q.id + 1}</div>
-        <div class="rxbody">
-          <div class="eq">${fmtEq(q.eq)}</div>
-          <div class="meta">
+      return `<button type="button" class="rx" data-id="${q.id}">
+        <span class="idx" aria-hidden="true">${q.id + 1}</span>
+        <span class="rxbody">
+          <span class="eq">${fmtEq(q.eq)}</span>
+          <span class="meta">
             <span class="tag" style="--tag:${c.color}">${c.label}</span>
             ${q.cond ? `<span class="cond">${q.cond}</span>` : ''}
             ${q.hadSpect ? `<span class="cond cond--warn">H⁺/OH⁻ omitted</span>` : ''}
-          </div>
-        </div>
-        <div class="pick">Use →</div>
-      </div>`;
+          </span>
+        </span>
+        <span class="pick">Use →</span>
+      </button>`;
     }).join('') + notListedCard;
     list.querySelectorAll('[data-id]').forEach(el => el.addEventListener('click', () => selectReaction(+el.dataset.id)));
     wireNotListed();
