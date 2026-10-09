@@ -2,16 +2,17 @@
    app.js  —  presentation layer
    A wizard flow in the Chemculator house style:
      landing ("I want to…") → periodic-table reaction picker → what to
-     calculate → which product / which unit → measurements → branch:
-        Learn    — one step-combo card at a time, stacked equations revealed
-                   line by line with a typewriter wipe; formula first, then
-                   substitution, then the result.
-        Verify   — answers only, on a single worksheet card.
-   The limiting reactant is found silently and simply stated: this app is
-   about yield, and the limiting-reactant working belongs to Stoichiomathics.
+     calculate → which product / which unit → amounts → branch:
+        Learn    — one card that grows a step at a time: the instruction, the
+                   working typed in line by line (stacked equations), and the
+                   ratio-ball picture where the step has one.
+        Verify   — the key figures and the same picture, all at once.
+        Practice — landing → a generated problem with instant feedback, a
+                   picture and the working. No setup.
    Depends on chemistry.js (AM, CAT, QUAL, MOLAR_VOL, fmtEq, fmtFormula,
-   molarMass, massParts, computeLimiting, solveYield). All chemistry stays
-   in chemistry.js.
+   molarMass, massParts, molesOf, solveProblem), generator.js + practice.js
+   (Generator, Practice), ratiovis.js (RatioVis) and motion.js. All
+   chemistry stays in chemistry.js.
    ========================================================================== */
 
 /* ---------------- theme toggle ----------------
@@ -111,13 +112,21 @@
   }
 
   /* Reveal for a math grid: the working arrives one line at a time, top to
-     bottom, at reading pace. The same reveal is used by every trainer. */
-  function typewriterMathGrid(el, html) {
+     bottom, at reading pace. The same reveal is used by every trainer.
+     opts: { delay, gap } in ms, or { instant: true } for no reveal.
+     Returns the time (ms from now) the last line has arrived. */
+  function typewriterMathGrid(el, html, opts) {
+    opts = opts || {};
     el.innerHTML = mathGrid(html);
+    if (opts.instant) return 0;
     const rows = el.querySelectorAll('.eqgrid .eq-row');
-    rows.forEach((row, i) => Motion.enter(row, { y: 4, duration: 'base', delay: i * LINE_GAP_MS }));
+    const start = opts.delay || 0;
+    const gap = opts.gap || Math.min(LINE_GAP_MS, Math.floor(MAX_TYPE_MS / Math.max(rows.length, 1)));
+    rows.forEach((row, i) => Motion.enter(row, { y: 4, duration: 'base', delay: start + i * gap }));
+    return start + rows.length * gap;
   }
   const LINE_GAP_MS = 180;   // pause between lines of working
+  const MAX_TYPE_MS = 2200;  // a long working speeds up rather than dragging on
 
   /* ---------------- periodic table layout (periods 1–6) ---------------- */
   const PT = [
@@ -132,9 +141,9 @@
   const ACTIVE = new Set(); QUAL.forEach(q => q.el.forEach(e => ACTIVE.add(e)));
 
   /* ---------------- state ---------------- */
-  function freshInput() { return { method: "mass", mass: "", conc: "", cvol: "", cvolUnit: "cm3", gvol: "", gvolUnit: "dm3", cond: "RTP" }; }
+  function freshInput() { return { method: "mass", mass: "", mol: "", conc: "", cvol: "", cvolUnit: "cm3", gvol: "", gvolUnit: "dm3", cond: "RTP" }; }
   const state = {
-    mode: null,             // 'learn' | 'verify'
+    mode: null,             // 'learn' | 'verify' | 'practice'
     cat: "all", els: new Set(), matchMode: "all", query: "",
     sel: null,              // a QUAL index, or the string 'custom'
     target: null,           // 'theoretical' | 'percent' | 'actual' — the unknown
@@ -143,7 +152,7 @@
     gasCond: 'RTP',         // molar-volume convention, only when unit === 'gas'
     inA: freshInput(), inB: freshInput(),
     known: { actual: '', percent: '' },  // whichever figure the question supplies
-    learn: null,            // { steps, idx, calcShown }
+    learn: null,            // { steps, shown }
     customCount: 1,         // number of products chosen in the custom builder (1–4)
     customFields: null,     // working {coef, name} rows while the builder is open
     customQ: null           // the built custom reaction, same shape as a QUAL entry
@@ -168,7 +177,8 @@
     measure: document.getElementById('card-measure'),
     learn:   document.getElementById('card-learn'),
     verify:  document.getElementById('card-verify'),
-    verdict: document.getElementById('card-verdict')
+    verdict: document.getElementById('card-verdict'),
+    practice: document.getElementById('card-practice')
   };
   const backLink = document.getElementById('back-link');
   let current = 'landing';
@@ -188,6 +198,7 @@
     state.known = { actual: '', percent: '' };
     state.learn = null;
     state.customCount = 1; state.customFields = null; state.customQ = null;
+    practice.P = null;
     renderCatalog();
   }
 
@@ -197,6 +208,7 @@
 
   /* ---------------- landing ---------------- */
   document.querySelectorAll('[data-choose]').forEach(btn => btn.addEventListener('click', () => {
+    if (btn.dataset.choose === 'practice') { goTo('practice', 'forward', startPractice); return; }
     state.mode = btn.dataset.choose;
     goTo('picker', 'forward');
   }));
@@ -204,7 +216,7 @@
   // gentle entrance: the lead line arrives, then the choice cards grow in one after another
   function playLandingEntrance() {
     Motion.enter(document.getElementById('hero-lead'));
-    Motion.stagger(document.querySelectorAll('.choice-card'), { y: 0, scale: 0.92, delay: 120 });
+    Motion.stagger(document.querySelectorAll('#card-landing .choice-card'), { y: 0, scale: 0.92, delay: 120 });
   }
 
   /* ---------------- picker: periodic table ---------------- */
@@ -299,7 +311,7 @@
       <span class="idx" aria-hidden="true">+</span>
       <span class="rxbody">
         <span class="eq">My reaction is not listed</span>
-        <span class="meta"><span class="cond">Build your own equation and use the same working</span></span>
+        <span class="meta"><span class="cond">Build your own equation</span></span>
       </span>
       <span class="pick">Build →</span>
     </button>`;
@@ -310,7 +322,7 @@
 
     if (!filtering) {
       count.innerHTML = '';
-      list.innerHTML = '<div class="empty">Search a species or formula above, or tap one or more <b>lit elements</b> in the table below to surface a matching reaction — then pick it to continue.<br><span class="empty-faint">Dim elements don’t appear in any two-reactant reaction.</span></div>' + notListedCard;
+      list.innerHTML = '<div class="empty">Search a formula, or tap elements.</div>' + notListedCard;
       wireNotListed();
       return;
     }
@@ -318,12 +330,7 @@
     const out = QUAL.filter(catalogPass);
     count.innerHTML = out.length ? `<b>${out.length}</b> matching reaction${out.length > 1 ? 's' : ''}` : '';
     if (!out.length) {
-      const query = state.query.trim();
-      const queryDisplay = query.split(/\s+\+\s+/).map(t => t.trim()).filter(Boolean).map(fmtFormula).join(' + ');
-      const reason = query
-        ? `No two-reactant reaction matches <b>${queryDisplay}</b>${state.els.size ? ' with that element combination' : ''}`
-        : 'No two-reactant reaction contains ' + (state.matchMode === 'all' && state.els.size > 1 ? '<b>all</b> of those elements together' : 'that combination');
-      list.innerHTML = `<div class="empty">${reason}.<br>Try <b>Match any</b>, remove an element, clear the search, or clear the filters.</div>` + notListedCard;
+      list.innerHTML = '<div class="empty">No reaction matches.<br>Try <b>Match any</b> or <b>Clear</b>.</div>' + notListedCard;
       wireNotListed();
       return;
     }
@@ -389,11 +396,10 @@
   }
 
   /* ================= custom reaction builder =================
-     Reactants stay fixed at two, matching the two-reactant limiting-reactant
-     engine. Product count (1–4) is free — and unlike Stoichiomathics every
-     product needs a real molar mass here, since the yield may be asked for
-     in grams or dm³ of any one of them. Nothing here is persisted: the built
-     reaction lives in state.customQ for this session only. */
+     Two reactants, one to four products — every product needs a real molar
+     mass, since the yield may be asked for in grams or dm³ of any one of
+     them. Nothing here is persisted: the built reaction lives in
+     state.customQ for this session only. */
   const PROD_LETTERS = ['c', 'd', 'e', 'f'];
   const FORMULA_RE = /^[A-Za-z(][A-Za-z0-9()[\]^+-]*$/;
 
@@ -536,25 +542,23 @@
   document.getElementById('custom-build-back').addEventListener('click', () => goTo('customSetup', 'back'));
 
   // Validate one field: a positive-integer coefficient and a formula whose
-  // elements are all recognised. Unlike Stoichiomathics, products need a
-  // molar mass too — a yield in grams or dm³ depends on it.
+  // elements are all recognised (products need a molar mass too).
   function validateField(f, label) {
     const name = (f.name || '').trim();
     if (!name) return `Enter a formula for ${label}.`;
-    if (!FORMULA_RE.test(name)) return `${label}'s formula (“${name}”) has a character that doesn't belong in a chemical formula.`;
+    if (!FORMULA_RE.test(name)) return `${label}: “${name}” has an invalid character.`;
     const comp = composition(name);
-    if (!Object.keys(comp).length) return `${label}'s formula (“${name}”) doesn't look like a valid formula.`;
+    if (!Object.keys(comp).length) return `${label}: “${name}” is not a valid formula.`;
     if (molarMass(name) == null) {
       const bad = Object.keys(comp).find(el => !(el in AM));
-      return `${label}'s formula (“${name}”) contains an element symbol${bad ? ` (“${bad}”)` : ''} that isn't recognised — check the spelling and capitalisation.`;
+      return `${label}: “${bad || name}” is not a known element.`;
     }
     const coefN = Number(f.coef);
-    if (!(Number.isInteger(coefN) && coefN >= 1)) return `${label}'s ratio number must be a whole number of 1 or more.`;
+    if (!(Number.isInteger(coefN) && coefN >= 1)) return `${label}: use a whole number, 1 or more.`;
     return null;
   }
 
-  /* A yield is read straight off the mole ratio, so an unbalanced equation
-     gives a confidently wrong theoretical yield. Count atoms on each side
+  /* An unbalanced equation gives a wrong yield: count atoms on each side
      and refuse to build until they match. */
   function balanceError(A, B, prods) {
     const tally = side => side.reduce((acc, t) => {
@@ -568,10 +572,7 @@
       .map(el => ({ el, l: left[el] || 0, r: right[el] || 0 }))
       .filter(x => x.l !== x.r);
     if (!off.length) return null;
-    const detail = off.map(x => `${x.el}: ${x.l} on the left, ${x.r} on the right`).join('; ');
-    return `That equation isn't balanced yet — ${detail}. ` +
-           `The theoretical yield comes straight from the mole ratio, so the ` +
-           `ratio numbers have to balance first. Adjust them and try again.`;
+    return 'Not balanced. ' + off.map(x => `${x.el}: ${x.l} left, ${x.r} right`).join('; ') + '.';
   }
 
   document.getElementById('custom-build-continue').addEventListener('click', () => {
@@ -622,8 +623,6 @@
 
   function renderProductSelect() {
     const q = currentQ();
-    document.getElementById('product-question').innerHTML =
-      `Which product is the ${TARGET_LABEL[state.target].toLowerCase()} about?`;
     document.getElementById('productEq').innerHTML = fmtEq(q.eq);
 
     const seg = document.getElementById('product-seg');
@@ -643,14 +642,12 @@
     }));
 
     // The molar-volume convention only matters when the yield is a gas volume.
-    document.getElementById('product-gas-note').innerHTML = state.unit === 'gas'
+    document.getElementById('product-gas').innerHTML = state.unit === 'gas'
       ? `<div class="custom-side-label">Molar gas volume</div>
-         <div class="seg seg--wide" id="gascond-seg" role="group" aria-label="Molar gas volume convention">
+         <div class="seg seg--wide" id="gascond-seg" role="group" aria-label="Molar gas volume">
            ${[['RTP', 'RTP · 24.0 dm³ mol⁻¹'], ['STP', 'STP · 22.4 dm³ mol⁻¹']].map(([v, l]) =>
              `<button type="button" data-cond="${v}" class="${state.gasCond === v ? 'active' : ''}">${l}</button>`).join('')}
-         </div>
-         <div class="note"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16.5v.01"/></svg>
-           <span>Only meaningful if <b>${fmtFormula(currentProduct().sp)}</b> really is a gas under these conditions — check that before using a gas volume.</span></div>`
+         </div>`
       : '';
     const gseg = document.getElementById('gascond-seg');
     if (gseg) gseg.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
@@ -666,7 +663,7 @@
   const VOL_LABEL = { cm3: 'cm³ (mL)', dm3: 'dm³ (L)' };
 
   function methodSelect(side, inp) {
-    const opts = [['mass', 'Mass (g)'], ['conc', 'Molarity × volume'], ['gas', 'Gas volume']];
+    const opts = [['mass', 'Mass (g)'], ['mol', 'Moles (mol)'], ['conc', 'Molarity × volume'], ['gas', 'Gas volume']];
     return `<select class="msel select" data-side="${side}" data-role="method" aria-label="measurement method">` +
       opts.map(([v, l]) => `<option value="${v}" ${inp.method === v ? 'selected' : ''}>${l}</option>`).join('') + `</select>`;
   }
@@ -677,28 +674,24 @@
   }
   function fieldsFor(side, inp, sp) {
     if (inp.method === 'mass') {
-      const M = molarMass(sp);
-      return `<div class="hint">moles = mass ÷ M<sub>r</sub> &nbsp;·&nbsp; M<sub>r</sub> = ${mm1(M)} g mol⁻¹</div>
-        <div class="massrow"><input class="num-input" type="number" min="0" step="any" inputmode="decimal" placeholder="mass" value="${inp.mass}" data-side="${side}" data-role="mass"><span class="unit">g</span></div>`;
+      return `<div class="massrow"><input class="num-input" type="number" min="0" step="any" inputmode="decimal" placeholder="mass" value="${inp.mass}" data-side="${side}" data-role="mass"><span class="unit">g</span></div>`;
+    }
+    if (inp.method === 'mol') {
+      return `<div class="massrow"><input class="num-input" type="number" min="0" step="any" inputmode="decimal" placeholder="moles" value="${inp.mol}" data-side="${side}" data-role="mol"><span class="unit">mol</span></div>`;
     }
     if (inp.method === 'conc') {
-      return `<div class="hint">moles = molarity × volume</div>
-        <div class="massrow"><input class="num-input" type="number" min="0" step="any" inputmode="decimal" placeholder="molarity" value="${inp.conc}" data-side="${side}" data-role="conc"><span class="unit">mol dm⁻³</span></div>
+      return `<div class="massrow"><input class="num-input" type="number" min="0" step="any" inputmode="decimal" placeholder="molarity" value="${inp.conc}" data-side="${side}" data-role="conc"><span class="unit">mol dm⁻³</span></div>
         <div class="massrow"><input class="num-input" type="number" min="0" step="any" inputmode="decimal" placeholder="volume" value="${inp.cvol}" data-side="${side}" data-role="cvol">
           ${volUnitSelect(side, 'cvolUnit', inp.cvolUnit, 'cm3')}</div>`;
     }
-    return `<div class="hint">moles = gas volume ÷ molar volume</div>
-      <div class="massrow"><input class="num-input" type="number" min="0" step="any" inputmode="decimal" placeholder="gas volume" value="${inp.gvol}" data-side="${side}" data-role="gvol">
+    return `<div class="massrow"><input class="num-input" type="number" min="0" step="any" inputmode="decimal" placeholder="gas volume" value="${inp.gvol}" data-side="${side}" data-role="gvol">
         ${volUnitSelect(side, 'gvolUnit', inp.gvolUnit, 'dm3')}</div>
       <div class="massrow"><select class="uSel select wide" data-side="${side}" data-role="cond"><option value="RTP" ${inp.cond === 'RTP' ? 'selected' : ''}>RTP · 24.0 dm³ mol⁻¹</option><option value="STP" ${inp.cond === 'STP' ? 'selected' : ''}>STP · 22.4 dm³ mol⁻¹</option></select></div>`;
   }
 
   function renderMeasure() {
-    const q = currentQ(), prod = currentProduct();
+    const q = currentQ();
     document.getElementById('measureEq').innerHTML = fmtEq(q.eq);
-    document.getElementById('measureNote').innerHTML =
-      `<div class="note"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16.5v.01"/></svg>
-        <span>Both reactant amounts are needed so the limiting reactant can be worked out — that's what fixes the yield of <b>${fmtFormula(prod.sp)}</b>.${q.hadSpect ? ' H⁺ (or OH⁻) is supplied in excess and is not compared.' : ''}</span></div>`;
     document.getElementById('measure-error').hidden = true;
     renderInputs();
     renderKnownInput();
@@ -717,25 +710,22 @@
   }
 
   /* The one extra figure a yield question supplies: the actual yield when
-     the percentage is unknown, or the percentage when the actual is. A
-     theoretical yield needs neither — the reactants alone fix it. */
+     the percentage is unknown, or the percentage when the actual is. */
   function renderKnownInput() {
     const wrap = document.getElementById('knownWrap');
     const prod = currentProduct();
     const f = fmtFormula(prod.sp);
     if (state.target === 'theoretical') { wrap.innerHTML = ''; return; }
     if (state.target === 'percent') {
-      wrap.innerHTML = `<div class="custom-side-label">Actual yield — what you really collected</div>
+      wrap.innerHTML = `<div class="custom-side-label">Actual yield</div>
         <div class="massfield">
           <div class="who">${f}</div>
-          <div class="hint">The measured amount of product from the experiment.</div>
           <div class="massrow"><input class="num-input" type="number" min="0" step="any" inputmode="decimal" placeholder="actual yield" value="${state.known.actual}" data-known="actual"><span class="unit">${UNIT_LABEL[state.unit]}</span></div>
         </div>`;
     } else {
-      wrap.innerHTML = `<div class="custom-side-label">Percentage yield — given in the question</div>
+      wrap.innerHTML = `<div class="custom-side-label">Percentage yield</div>
         <div class="massfield">
           <div class="who">${f}</div>
-          <div class="hint">The percentage of the theoretical maximum this reaction actually gives.</div>
           <div class="massrow"><input class="num-input" type="number" min="0" step="any" inputmode="decimal" placeholder="percentage yield" value="${state.known.percent}" data-known="percent"><span class="unit">%</span></div>
         </div>`;
     }
@@ -757,14 +747,6 @@
     }));
   }
 
-  /* amount → moles */
-  function molesOf(inp, sp) {
-    if (inp.method === 'mass') { const m = parseFloat(inp.mass), M = molarMass(sp); return (m > 0) ? m / M : NaN; }
-    if (inp.method === 'conc') { const c = parseFloat(inp.conc); let V = parseFloat(inp.cvol); if (!(c > 0) || !(V > 0)) return NaN; if (inp.cvolUnit === 'cm3') V /= 1000; return c * V; }
-    if (inp.method === 'gas') { let V = parseFloat(inp.gvol); if (!(V > 0)) return NaN; if (inp.gvolUnit === 'cm3') V /= 1000; return V / MOLAR_VOL[inp.cond]; }
-    return NaN;
-  }
-
   document.getElementById('measure-back').addEventListener('click', () => {
     goTo('product', 'back', renderProductSelect);
   });
@@ -774,21 +756,21 @@
     const nA = molesOf(state.inA, q.A.sp), nB = molesOf(state.inB, q.B.sp);
     const err = document.getElementById('measure-error');
     if (!(isFinite(nA) && nA > 0 && isFinite(nB) && nB > 0)) {
-      err.textContent = 'Enter a positive amount for both reactants — choose Mass, Molarity × volume, or Gas volume for each.';
+      err.textContent = 'Enter a positive amount for both reactants.';
       err.hidden = false;
       return;
     }
     if (state.target === 'percent') {
       const a = parseFloat(state.known.actual);
       if (!(isFinite(a) && a > 0)) {
-        err.textContent = `Enter the actual yield you collected, in ${UNIT_LABEL[state.unit]} — that's what the percentage is measured against.`;
+        err.textContent = `Enter the actual yield, in ${UNIT_LABEL[state.unit]}.`;
         err.hidden = false; return;
       }
     }
     if (state.target === 'actual') {
       const p = parseFloat(state.known.percent);
       if (!(isFinite(p) && p > 0)) {
-        err.textContent = 'Enter the percentage yield given in the question, as a number greater than 0.';
+        err.textContent = 'Enter a percentage yield above 0.';
         err.hidden = false; return;
       }
     }
@@ -796,20 +778,17 @@
     beginWorking();
   });
 
-  /* ---------------- the solved result, in one place ---------------- */
-  function computed() {
-    const q = currentQ(), prod = currentProduct();
-    const nA = molesOf(state.inA, q.A.sp), nB = molesOf(state.inB, q.B.sp);
-    const res = computeLimiting(q, nA, nB);
-    const known = { actual: parseFloat(state.known.actual), percent: parseFloat(state.known.percent) };
-    const y = solveYield(res, prod, state.target, state.unit, state.gasCond, known);
-    return { q, prod, res, y };
+  /* ---------------- the problem, in one place ----------------
+     Everything below works from a "problem": the wizard's answers, or a Practice
+     problem (same fields). chemistry.js solves it. */
+  function wizardProblem() {
+    return { q: currentQ(), prodIdx: state.prodIdx, target: state.target, unit: state.unit, cond: state.gasCond,
+             inA: state.inA, inB: state.inB, known: state.known };
   }
 
   function beginWorking() {
     if (state.mode === 'verify') { goTo('verify', 'forward', renderVerify); return; }
-    state.learn = { steps: buildLearnSteps(), idx: 0, calcShown: false };
-    goTo('learn', 'forward', renderLearnStep);
+    goTo('learn', 'forward', renderLearn);
   }
 
   /* ---------------- shared working fragments ---------------- */
@@ -819,6 +798,7 @@
       const m = parseFloat(inp.mass), M = molarMass(sp);
       return `n(${f}) = ${frac('m', 'M<sub>r</sub>')} = ${frac(sig(m) + ' g', mm1(M) + ' g mol⁻¹')} = ${sig(n)} mol`;
     }
+    if (inp.method === 'mol') return `n(${f}) = ${sig(n)} mol`;
     if (inp.method === 'conc') {
       const c = parseFloat(inp.conc); let Vr = parseFloat(inp.cvol); let V = Vr;
       const conv = inp.cvolUnit === 'cm3' ? (V = Vr / 1000, `V = ${sig(Vr)} cm³ = ${sig(V)} dm³<br>`) : '';
@@ -830,40 +810,13 @@
     return `${conv}n(${f}) = ${frac('V', 'V<sub>m</sub>')} = ${frac(sig(V) + ' dm³', Vm.toFixed(1) + ' dm³ mol⁻¹')} = ${sig(n)} mol`;
   }
 
-  function moleStrategy(inp, sp) {
-    const f = fmtFormula(sp);
-    if (inp.method === 'mass') return `The amount of ${f} is given as a mass, so divide by its molar mass: n = m ÷ M<sub>r</sub>.`;
-    if (inp.method === 'conc') return `The amount of ${f} is given as a solution, so multiply molarity by volume (in dm³): n = M × V.`;
-    return `The amount of ${f} is a gas volume, so divide by the molar gas volume: n = V ÷ V<sub>m</sub>.`;
-  }
-  function moleFootnote(inp) {
-    if (inp.method === 'conc' && inp.cvolUnit === 'cm3') return 'The volume was entered in cm³ (mL) — convert to dm³ (L) by dividing by 1000 before multiplying.';
-    if (inp.method === 'gas') {
-      const base = inp.cond === 'RTP' ? 'RTP: 24.0 dm³ mol⁻¹ (room temperature and pressure)' : 'STP: 22.4 dm³ mol⁻¹ (standard temperature and pressure)';
-      return (inp.gvolUnit === 'cm3' ? 'The gas volume was entered in cm³ (mL) — convert to dm³ (L) by dividing by 1000. ' : '') + 'Molar volume at ' + base + '.';
-    }
-    return null;
-  }
-  function moleStrategyCombined(inpA, spA, inpB, spB) {
-    const fA = fmtFormula(spA), fB = fmtFormula(spB);
-    if (inpA.method === inpB.method) {
-      const how = inpA.method === 'mass' ? `given as a mass, so divide each by its molar mass: n = m ÷ M<sub>r</sub>`
-                : inpA.method === 'conc' ? `given as a solution, so multiply molarity by volume (in dm³): n = M × V`
-                : `a gas volume, so divide by the molar gas volume: n = V ÷ V<sub>m</sub>`;
-      return `Both amounts are ${how} — do this for ${fA} first, then ${fB}.`;
-    }
-    return `${moleStrategy(inpA, spA)} ${moleStrategy(inpB, spB)}`;
-  }
-  function moleFootnoteCombined(inpA, inpB) {
-    return [moleFootnote(inpA), moleFootnote(inpB)].filter(Boolean).join(' ') || null;
-  }
-
-  /* molar-mass working for one species — one term per element */
+  /* molar-mass working for one species — one term per element (a lone atom is just its A_r) */
   function mmMath(sp) {
     const parts = massParts(sp), M = molarMass(sp);
     const formula = parts.map(p => (p.n > 1 ? p.n + 'A<sub>r</sub>(' + p.el + ')' : 'A<sub>r</sub>(' + p.el + ')')).join(' + ');
     const subst = parts.map(p => (p.n > 1 ? p.n + ' × ' + mm1(p.a) : mm1(p.a))).join(' + ');
-    return `M<sub>r</sub>(${fmtFormula(sp)}) = ${formula} = ${subst} = ${mm1(M)} g mol⁻¹`;
+    const lone = parts.length === 1 && parts[0].n === 1;
+    return `M<sub>r</sub>(${fmtFormula(sp)}) = ${formula} = ${lone ? '' : subst + ' = '}${mm1(M)} g mol⁻¹`;
   }
 
   // Converting the theoretical moles of product into the unit the question asks for.
@@ -880,221 +833,432 @@
     return `${label}(${f}) = ${sig(n)} mol`;
   }
 
-  /* ---------------- LEARN: build the step list ---------------- */
-  function buildLearnSteps() {
-    const { q, prod, res, y } = computed();
+  /* ---------------- ratio-ball pictures ----------------
+     The spec for one picture of a solved problem `s` (solveProblem's result). `moles` are the exact
+     figures from the working, never the rounded text. */
+  function pictureSpec(s, view, extra) {
+    return Object.assign({
+      reactants: [s.q.A, s.q.B].map((x, i) => ({ html: fmtFormula(x.sp), coef: x.coef, moles: i ? s.res.nB : s.res.nA })),
+      products: s.q.products.map(x => ({ html: fmtFormula(x.sp), coef: x.coef })),
+      product: s.idx,
+      view
+    }, extra);
+  }
+  // actual ÷ theoretical, for the filled share of the product balls; nothing when no actual yield exists
+  function fillOf(y) {
+    const f = y.nActual / y.nTheo;
+    return isFinite(f) && f >= 0 ? { fill: f } : {};
+  }
+  // `pic` = { spec, opts }. The host is shown first, so the entrance plays in view; a picture that
+  // cannot be drawn (an absurd amount) leaves its host hidden.
+  function mountPicture(host, pic, extra) {
+    if (!host) return;
+    host.hidden = false;
+    if (!RatioVis.mount(host, pic.spec, Object.assign({ sf: 4 }, pic.opts, extra))) host.hidden = true;
+  }
+
+  /* ---------------- the working: ONE step list for Learn, Verify and Practice ----------------
+     [{ instruction, math, picture? }] — `picture` is { spec, opts } for RatioVis. */
+  function stepsFor(p) {
+    const s = solveProblem(p), { q, prod, res, y } = s;
     const A = q.A, B = q.B;
     const fA = fmtFormula(A.sp), fB = fmtFormula(B.sp), fP = fmtFormula(prod.sp);
     const steps = [];
 
-    // 1 — molar masses, for whichever species actually need one: reactants
-    // entered by mass, plus the product if the yield is a mass.
+    // 1 — moles. Molar masses first, for whichever species need one: reactants entered by mass,
+    // plus the product if the yield is a mass.
     const needMM = [];
-    if (state.inA.method === 'mass') needMM.push(A.sp);
-    if (state.inB.method === 'mass') needMM.push(B.sp);
-    if (state.unit === 'mass' && !needMM.includes(prod.sp)) needMM.push(prod.sp);
-    if (needMM.length) {
-      const names = needMM.map(fmtFormula);
-      steps.push({
-        instruction: `Work out the molar mass${needMM.length > 1 ? 'es' : ''} of ${names.join(' and ')}.`,
-        strategy: 'Add up the relative atomic masses of every atom in each formula — multiply by the subscript where an element appears more than once.',
-        math: needMM.map(mmMath).join('<br>')
-      });
-    }
-
-    // 2 — moles of both reactants
+    if (p.inA.method === 'mass') needMM.push(A.sp);
+    if (p.inB.method === 'mass') needMM.push(B.sp);
+    if (p.unit === 'mass' && !needMM.includes(prod.sp)) needMM.push(prod.sp);
     steps.push({
-      instruction: `Convert the amounts of ${fA} and ${fB} to moles.`,
-      strategy: moleStrategyCombined(state.inA, A.sp, state.inB, B.sp),
-      footnote: moleFootnoteCombined(state.inA, state.inB),
-      math: `${moleMath(state.inA, A.sp, res.nA)}<br>${moleMath(state.inB, B.sp, res.nB)}`
+      instruction: !needMM.length && p.inA.method === 'mol' && p.inB.method === 'mol' ? 'Note the moles.' : 'Convert to moles.',
+      math: needMM.map(mmMath).concat(moleMath(p.inA, A.sp, res.nA), moleMath(p.inB, B.sp, res.nB)).join('<br>')
     });
 
-    // 3 — the limiting reactant, stated rather than derived. Working it out
-    // is Stoichiomathics' job; here it's just the fact the yield hangs off.
+    // 2 — which one runs out first: n ÷ coefficient for each, the smaller wins
     const L = res.limiting || A;
     const fL = fmtFormula(L.sp);
+    const batch = (f, n, c) => `n(${f}) ÷ ${c} = ${sig(n / c)} mol`;
     steps.push({
-      instruction: res.tie ? 'Both reactants run out together.' : `${fL} is the limiting reactant.`,
-      strategy: res.tie
-        ? `Comparing n ÷ coefficient for each reactant gives the same value, so neither is in excess — either one fixes how much ${fP} can form.`
-        : `Comparing n ÷ coefficient for each reactant, ${fL} gives the smaller value, so it runs out first and fixes how much ${fP} can form. ${fmtFormula(res.excess.sp)} is left in excess.`,
-      footnote: 'This app states the limiting reactant rather than deriving it — for that working step by step, use Chemculate Limiting Reactant.',
-      math: `${frac(`n(${fA})`, String(res.a))} = ${sig(res.nA / res.a)} mol<br>` +
-            `${frac(`n(${fB})`, String(res.b))} = ${sig(res.nB / res.b)} mol<br>` +
-            `limiting = ${res.tie ? 'neither — exactly stoichiometric' : fL}`
+      instruction: 'Which one runs out first?',
+      math: `${batch(fA, res.nA, res.a)}<br>${batch(fB, res.nB, res.b)}<br>` + (res.tie ? 'Both run out together.' : `${fL} runs out first.`),
+      picture: { spec: pictureSpec(s, 'compare'), opts: { fitControl: true } }
     });
 
-    // 4 — theoretical moles of the product, from the limiting reactant
+    // 3 — moles of product, from the one that runs out (on a tie either gives the same)
     const nL = (L === A) ? res.nA : res.nB;
     const lCoef = (L === A) ? res.a : res.b;
     const ratio = frac(String(prod.coef), String(lCoef));
     steps.push({
-      instruction: `Find the theoretical amount of ${fP} in moles.`,
-      strategy: `From the balanced equation, ${fL} and ${fP} are in the ratio ${lCoef} : ${prod.coef} — every ${lCoef} mol of ${fL} makes ${prod.coef} mol of ${fP}. Multiply the moles of the limiting reactant by that ratio to get the most ${fP} the reaction could give.`,
-      math: `${frac(`n(${fP})`, `n(${fL})`)} = ${ratio}<br>` +
-            `n(${fP}) = n(${fL}) × ${ratio} = ${sig(nL)} × ${ratio} = ${sig(y.nTheo)} mol`
+      instruction: `Find moles of ${fP}.`,
+      math: `n(${fP}) = n(${fL}) × ${ratio} = ${sig(nL)} × ${ratio} = ${sig(y.nTheo)} mol`,
+      picture: { spec: pictureSpec(s, 'product') }
     });
 
-    // 5 — express that theoretical amount in the unit the question uses
-    if (state.unit !== 'mol') {
+    // 4 — the unit the question uses
+    if (p.unit !== 'mol') {
       steps.push({
-        instruction: `Convert the theoretical yield to ${state.unit === 'mass' ? 'grams' : 'a gas volume'}.`,
-        strategy: state.unit === 'mass'
-          ? `Multiply the moles of ${fP} by its molar mass: m = n × M<sub>r</sub>.`
-          : `Multiply the moles of ${fP} by the molar gas volume: V = n × V<sub>m</sub>.`,
-        footnote: state.unit === 'gas'
-          ? `Molar volume at ${state.gasCond === 'RTP' ? 'RTP: 24.0 dm³ mol⁻¹ (room temperature and pressure)' : 'STP: 22.4 dm³ mol⁻¹ (standard temperature and pressure)'}.`
-          : null,
-        math: amountMath(y.nTheo, prod.sp, state.unit, state.gasCond, 'theoretical')
+        instruction: p.unit === 'mass' ? 'Convert to grams.' : 'Convert to dm³.',
+        math: amountMath(y.nTheo, prod.sp, p.unit, p.cond, p.unit === 'mass' ? 'm' : 'V')
       });
     }
 
-    // 6 — the actual question, when it isn't the theoretical yield itself
-    if (state.target === 'percent') {
+    // 5 — the actual question, when it isn't the theoretical yield itself
+    if (p.target === 'percent') {
       steps.push({
-        instruction: 'Work out the percentage yield.',
-        strategy: `The percentage yield compares what you really collected with the theoretical maximum: divide the actual yield by the theoretical yield and multiply by 100. Both must be in the same unit — here, ${y.unitLabel}.`,
-        math: `percentage yield = ${frac('actual', 'theoretical')} × 100<br>` +
-              `= ${frac(sig(y.actual) + ' ' + y.unitLabel, sig(y.theoretical) + ' ' + y.unitLabel)} × 100 = ${sig(y.percent)} %`
+        instruction: 'Find the percentage yield.',
+        math: `% yield = ${frac('actual', 'theoretical')} × 100 = ${frac(sig(y.actual) + ' ' + y.unitLabel, sig(y.theoretical) + ' ' + y.unitLabel)} × 100 = ${sig(y.percent)} %`,
+        picture: { spec: pictureSpec(s, 'product', fillOf(y)) }
       });
-    } else if (state.target === 'actual') {
+    } else if (p.target === 'actual') {
       steps.push({
-        instruction: 'Work out the actual yield.',
-        strategy: `The percentage yield tells you what fraction of the theoretical maximum this reaction really gives. Multiply the theoretical yield by that percentage and divide by 100.`,
-        math: `actual = theoretical × ${frac('percentage', '100')}<br>` +
-              `= ${sig(y.theoretical)} × ${frac(sig(y.percent), '100')} = ${sig(y.actual)} ${y.unitLabel}`
+        instruction: 'Find the actual yield.',
+        math: `actual = theoretical × ${frac('percentage', '100')} = ${sig(y.theoretical)} × ${frac(sig(y.percent), '100')} = ${sig(y.actual)} ${y.unitLabel}`,
+        picture: { spec: pictureSpec(s, 'product', fillOf(y)) }
       });
     }
-
     return steps;
   }
 
-  const learnEyebrow = document.getElementById('learn-eyebrow');
-  const learnInstruction = document.getElementById('learn-instruction');
-  const learnStrategy = document.getElementById('learn-strategy');
-  const learnFootnote = document.getElementById('learn-footnote');
-  const learnMath = document.getElementById('learn-math');
-  const learnNext = document.getElementById('learn-next');
+  // the answer, as a value with its unit
+  function answerValue(p, y) {
+    return p.target === 'percent' ? `${sig(y.percent)} %`
+         : p.target === 'actual' ? `${sig(y.actual)} ${y.unitLabel}`
+         : `${sig(y.theoretical)} ${y.unitLabel}`;
+  }
+  // the picture of the finished problem (with the filled share when a yield was measured)
+  function finalPicture(p, opts) {
+    const s = solveProblem(p);
+    return { spec: pictureSpec(s, 'product', fillOf(s.y)), opts };
+  }
 
-  function renderLearnStep() {
-    const { steps, idx } = state.learn;
-    const s = steps[idx];
-    learnEyebrow.textContent = `Step ${idx + 1} of ${steps.length}`;
-    learnInstruction.innerHTML = s.instruction;
-    learnStrategy.innerHTML = s.strategy;
-    if (s.footnote) { learnFootnote.innerHTML = s.footnote; learnFootnote.hidden = false; }
-    else { learnFootnote.hidden = true; }
-    learnMath.innerHTML = '';
-    learnNext.textContent = 'Show the calculation';
-    state.learn.calcShown = false;
+  /* ---------------- step blocks ----------------
+     One block = number + instruction + the working typed in + the picture, when the step has one.
+     Learn appends them one at a time; Practice's "Show the maths" puts them all down at once. */
+  const TYPE_START_MS = 250;      // the instruction arrives, then the working
+  function addBlock(host, step, i, o) {
+    host.insertAdjacentHTML('beforeend',
+      `<li class="step-block">
+        <div class="step-block__head"><span class="step-num" aria-hidden="true">${i + 1}</span><p class="step-block__title">${step.instruction}</p></div>
+        <div class="step-block__math math-typed"></div>
+        ${o.pictures && step.picture ? '<div class="step-pic"></div>' : ''}
+      </li>`);
+    const li = host.lastElementChild;
+    const math = li.querySelector('.step-block__math'), pic = li.querySelector('.step-pic');
+    let end = o.delay || 0;
+    if (o.instant) {
+      typewriterMathGrid(math, step.math, { instant: true });
+      if (pic) mountPicture(pic, step.picture, { animate: false });
+    } else {
+      Motion.enter(li.querySelector('.step-block__head'), { delay: end });
+      end = typewriterMathGrid(math, step.math, { delay: end + TYPE_START_MS, gap: o.gap });
+      if (pic) {                                                           // the balls arrive last
+        mountPicture(pic, step.picture, { delay: end + 120 });
+        Motion.enter(pic, { y: 4, delay: end + 120 });
+      }
+    }
+    return { li, end };
+  }
+
+  /* ---------------- LEARN: a worksheet that grows one step at a time ---------------- */
+  const learnSteps = document.getElementById('learn-steps');
+  const learnNext = document.getElementById('learn-next');
+  const learnBack = document.getElementById('learn-back');
+  const learnAll = document.getElementById('learn-all');
+  const learnDots = document.getElementById('learn-dots');
+
+  // Motion.swap calls this while the card is still hidden
+  function renderLearn() {
+    const p = wizardProblem(), s = solveProblem(p);
+    state.learn = { steps: stepsFor(p), shown: 0 };
+    document.getElementById('learn-eyebrow').innerHTML = `${TARGET_LABEL[p.target]} of ${fmtFormula(s.prod.sp)}`;
+    document.getElementById('learnEq').innerHTML = fmtEq(s.q.eq);
+    learnSteps.innerHTML = '';
+    learnShow(1, false);
+  }
+
+  // show blocks until `count` are on the page; returns the first new one
+  function learnShow(count, instant) {
+    const L = state.learn;
+    let first = null;
+    while (L.shown < Math.min(count, L.steps.length)) {
+      const { li } = addBlock(learnSteps, L.steps[L.shown], L.shown, { instant, pictures: true });
+      first = first || li;
+      L.shown++;
+    }
+    const n = L.steps.length, done = L.shown >= n;
+    learnNext.textContent = done ? 'See the answer →' : 'Next step →';
+    learnAll.hidden = done;
+    learnDots.innerHTML = L.steps.map((_, i) => `<i class="${i < L.shown ? 'on' : ''}"></i>`).join('');
+    learnDots.setAttribute('aria-label', `Step ${L.shown} of ${n}`);
+    return first;
   }
 
   learnNext.addEventListener('click', () => {
-    if (!state.learn) return;
-    const { steps, idx, calcShown } = state.learn;
-    if (!calcShown) {
-      typewriterMathGrid(learnMath, steps[idx].math);
-      state.learn.calcShown = true;
-      const isLast = idx === steps.length - 1;
-      learnNext.textContent = isLast ? 'Reveal the answer' : 'Next step →';
-      return;
-    }
-    if (idx + 1 < steps.length) {
-      panTransition(cards.learn, cards.learn, 'forward', () => {
-        state.learn.idx = idx + 1;
-        renderLearnStep();
-      });
-    } else {
-      goTo('verdict', 'forward', renderVerdict);
-    }
+    const L = state.learn;
+    if (!L) return;
+    if (L.shown >= L.steps.length) { goTo('verdict', 'forward', renderVerdict); return; }
+    Motion.scrollIntoView(learnShow(L.shown + 1, false));
+  });
+  learnAll.addEventListener('click', () => {
+    const L = state.learn;
+    if (!L) return;
+    const first = learnShow(L.steps.length, true);
+    learnNext.focus();
+    Motion.scrollIntoView(first, 'start');
+  });
+  learnBack.addEventListener('click', () => {
+    const L = state.learn;
+    if (!L) return;
+    if (L.shown <= 1) { goTo('measure', 'back', renderMeasure); return; }
+    learnSteps.lastElementChild.remove();
+    L.shown--;
+    learnShow(L.shown, false);                      // nothing to add: refreshes the buttons and the dots
   });
 
-  /* ---------------- VERIFY: answers only ---------------- */
+  /* ---------------- VERIFY: all the key figures at once ---------------- */
   function renderVerify() {
-    const { q, prod, res, y } = computed();
-    const A = q.A, B = q.B;
-    const fA = fmtFormula(A.sp), fB = fmtFormula(B.sp), fP = fmtFormula(prod.sp);
-    const rows = [];
+    const p = wizardProblem(), s = solveProblem(p), { prod, res, y } = s;
+    const fA = fmtFormula(s.q.A.sp), fB = fmtFormula(s.q.B.sp), fP = fmtFormula(prod.sp);
+    const num = (v, unit) => `<b>${sig(v)}</b> ${unit}`;
+    const rows = [
+      ['Moles', `n(${fA}) = ${num(res.nA, 'mol')}<span class="dotsep">·</span>n(${fB}) = ${num(res.nB, 'mol')}`],
+      ['Runs out first', res.tie ? '<b>Both together</b>' : `<b>${fmtFormula(res.limiting.sp)}</b>`],
+      [`Moles of ${fP}`, num(y.nTheo, 'mol')]
+    ];
+    if (p.unit !== 'mol') rows.push(['Theoretical', num(y.theoretical, y.unitLabel)]);
+    if (p.target === 'percent') rows.push(['Actual', num(y.actual, y.unitLabel)], ['Percentage', `<b>${sig(y.percent)} %</b>`]);
+    if (p.target === 'actual') rows.push(['Percentage', `<b>${sig(y.percent)} %</b>`], ['Actual', num(y.actual, y.unitLabel)]);
+    rows.push(['Answer', `${TARGET_LABEL[p.target]} = <b>${answerValue(p, y)}</b>`]);
 
-    const needMM = [];
-    if (state.inA.method === 'mass') needMM.push(A.sp);
-    if (state.inB.method === 'mass') needMM.push(B.sp);
-    if (state.unit === 'mass' && !needMM.includes(prod.sp)) needMM.push(prod.sp);
-    if (needMM.length) {
-      rows.push(['Molar mass' + (needMM.length > 1 ? 'es' : ''),
-        needMM.map(sp => `M<sub>r</sub>(${fmtFormula(sp)}) = <b>${mm1(molarMass(sp))}</b> g mol⁻¹`).join('<span class="dotsep">·</span>')]);
-    }
-    rows.push(['Moles of reactants', `n(${fA}) = <b>${sig(res.nA)}</b> mol<span class="dotsep">·</span>n(${fB}) = <b>${sig(res.nB)}</b> mol`]);
-    rows.push(['Limiting reactant', res.tie
-      ? `<b>Neither — exactly stoichiometric</b>`
-      : `<b>${fmtFormula(res.limiting.sp)}</b><span class="dotsep">·</span>Excess: ${fmtFormula(res.excess.sp)} (${sig(res.leftMol)} mol left over)`]);
-    rows.push([`Mole ratio to ${fP}`, `${fmtFormula((res.limiting || A).sp)} : ${fP} = <b>${(res.limiting === B) ? res.b : res.a} : ${prod.coef}</b>`]);
-    rows.push(['Theoretical yield', `<b>${sig(y.nTheo)}</b> mol` +
-      (state.unit !== 'mol' ? `<span class="dotsep">·</span><b>${sig(y.theoretical)}</b> ${y.unitLabel}` : '')]);
-
-    if (state.target === 'percent') {
-      rows.push(['Actual yield (given)', `<b>${sig(y.actual)}</b> ${y.unitLabel}`]);
-      rows.push(['Percentage yield', `<b>${sig(y.percent)} %</b>`]);
-    } else if (state.target === 'actual') {
-      rows.push(['Percentage yield (given)', `<b>${sig(y.percent)} %</b>`]);
-      rows.push(['Actual yield', `<b>${sig(y.actual)}</b> ${y.unitLabel}`]);
-    }
-    rows.push(['Answer', answerLine(y, prod)]);
-
-    document.getElementById('verify-title').innerHTML = `${TARGET_LABEL[state.target]} of ${fP}`;
     document.getElementById('verify-body').innerHTML = rows.map(([label, html]) =>
       `<div class="vrow"><div class="vlabel">${label}</div><div class="vval">${html}</div></div>`).join('');
+    mountPicture(document.getElementById('verify-pic'), finalPicture(p, { size: 'sm' }), { delay: 300 });
   }
 
   document.getElementById('verify-again').addEventListener('click', () => goTo('measure', 'back', renderMeasure));
   document.getElementById('verify-restart').addEventListener('click', () => goTo('landing', 'back', resetAll));
 
   /* ---------------- verdict card ---------------- */
-  function answerLine(y, prod) {
-    const fP = fmtFormula(prod.sp);
-    if (state.target === 'percent') return `Percentage yield of ${fP} = <b>${sig(y.percent)} %</b>`;
-    if (state.target === 'actual') return `Actual yield of ${fP} = <b>${sig(y.actual)} ${y.unitLabel}</b>`;
-    return `Theoretical yield of ${fP} = <b>${sig(y.theoretical)} ${y.unitLabel}</b>`;
-  }
-
   function renderVerdict() {
-    const { q, prod, res, y } = computed();
-    const head = document.getElementById('verdict-headline');
-    const body = document.getElementById('verdict-body');
-    const fP = fmtFormula(prod.sp);
-    const fL = res.tie ? null : fmtFormula(res.limiting.sp);
-
-    const value = state.target === 'percent' ? `${sig(y.percent)} %`
-                : state.target === 'actual' ? `${sig(y.actual)} ${y.unitLabel}`
-                : `${sig(y.theoretical)} ${y.unitLabel}`;
-    head.innerHTML = `${TARGET_LABEL[state.target]}: <span class="chip chip--lim">${value}</span>`;
-
-    const limSentence = res.tie
-      ? `Both reactants run out together, so either one fixes the yield.`
-      : `<b>${fL}</b> is the limiting reactant, so it fixes how much ${fP} can form.`;
-
-    if (state.target === 'theoretical') {
-      body.innerHTML = `${limSentence} At most <b>${sig(y.theoretical)} ${y.unitLabel}</b> ` +
-        `(${sig(y.nTheo)} mol) of ${fP} could be made — assuming the reaction goes to completion and nothing is lost.`;
-    } else if (state.target === 'percent') {
-      const over = y.percent > 100;
-      body.innerHTML = `${limSentence} The theoretical maximum is <b>${sig(y.theoretical)} ${y.unitLabel}</b>, ` +
-        `and you collected <b>${sig(y.actual)} ${y.unitLabel}</b> — that's <b>${sig(y.percent)} %</b> of what was possible. ` +
-        (over
-          ? `A yield above 100 % isn't chemically possible, so something is off with the measurement — the product may still be wet or impure, or the actual yield may be mis-recorded.`
-          : `The shortfall is normal: product is lost in transfers, filtration and purification, and few reactions truly go to completion.`);
-    } else {
-      body.innerHTML = `${limSentence} The theoretical maximum is <b>${sig(y.theoretical)} ${y.unitLabel}</b>, ` +
-        `so at <b>${sig(y.percent)} %</b> yield you would really collect about <b>${sig(y.actual)} ${y.unitLabel}</b> ` +
-        `(${sig(y.nActual)} mol) of ${fP}.`;
-    }
+    const p = wizardProblem(), s = solveProblem(p), { res, y } = s;
+    document.getElementById('verdict-headline').innerHTML =
+      `${TARGET_LABEL[p.target]}: <span class="chip chip--lim">${answerValue(p, y)}</span>`;
+    document.getElementById('verdict-body').innerHTML = res.tie
+      ? 'Both run out together.'
+      : `${fmtFormula(res.limiting.sp)} limits the yield.`;
+    document.getElementById('verdict-flag').hidden = !(p.target === 'percent' && y.percent > 100);
+    mountPicture(document.getElementById('verdict-pic'), finalPicture(p), { delay: 300 });
   }
 
   document.getElementById('verdict-again').addEventListener('click', () => goTo('measure', 'back', renderMeasure));
   document.getElementById('verdict-restart').addEventListener('click', () => goTo('landing', 'back', resetAll));
 
+  /* ---------------- PRACTICE ----------------
+     landing → a problem straight away. Practice.make() builds it (generator.js + practice.js); the working
+     and the pictures are the very ones Learn uses. In memory only: nothing is stored. */
+  const practice = {
+    level: 'mixed', recent: [],        // the last five reaction ids, so a problem never repeats at once
+    score: { right: 0, total: 0 },
+    P: null, right: null               // the problem on screen, and whether Q1 / Q2 were right
+  };
+  const practiceBody = document.getElementById('practice-problem');
+  const practiceScore = document.getElementById('practice-score');
+  const LEVELS = ['moles', 'grams', 'mixed'];
+
+  const esc = x => String(x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const verdictWord = ok => `<span class="fb-ic" aria-hidden="true">${ok ? '✓' : '✗'}</span><b>${ok ? 'Correct.' : 'Not quite.'}</b>`;
+  const pickLabel = (P, pick) => pick === 'tie' ? 'Neither' : fmtFormula((pick === 0 ? P.q.A : P.q.B).sp);
+
+  function syncPracticeBar() {
+    document.querySelectorAll('#practice-level button').forEach(b => {
+      const on = b.dataset.level === practice.level;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-pressed', String(on));
+    });
+    practiceScore.innerHTML = `<span class="sr-only">Score </span>✓ ${practice.score.right} / ${practice.score.total}`;
+  }
+
+  // Motion.swap calls this while the card is still hidden
+  function startPractice() {
+    state.mode = 'practice';
+    newProblem(false);
+  }
+
+  function newProblem(animate) {
+    const P = Practice.make({ level: practice.level, avoid: practice.recent });
+    practice.recent.push(P.id);
+    if (practice.recent.length > 5) practice.recent.shift();
+    practice.P = P;
+    practice.right = [];
+    syncPracticeBar();
+    practiceBody.innerHTML = problemHtml(P);
+    if (animate !== false) Motion.enter(practiceBody);
+  }
+
+  function problemHtml(P) {
+    const q = P.q, prod = q.products[P.prodIdx];
+    const given = (label, text) => `<li class="given"><span class="given-f">${label}</span><span class="given-v">${text}</span></li>`;
+    const givens = [
+      given(fmtFormula(q.A.sp), Generator.format(P.scenario.givens[0]).text),
+      given(fmtFormula(q.B.sp), Generator.format(P.scenario.givens[1]).text)
+    ];
+    if (P.target === 'percent') givens.push(given('Actual yield', `${P.known.actual} ${UNIT_LABEL[P.unit]}`));
+    if (P.target === 'actual') givens.push(given('Percentage yield', `${P.known.percent} %`));
+    if (P.unit === 'gas') givens.push(given(P.cond, `${MOLAR_VOL[P.cond].toFixed(1)} dm³ mol⁻¹`));
+    const showHint = [P.inA, P.inB].some(inp => inp.method !== 'mol');
+    const unit = P.unitLabel;
+    return `
+      <div class="calc-eq">${fmtEq(q.eq)}</div>
+      ${P.scenario.cond ? `<div class="cond-row"><span class="cond-chip">${esc(P.scenario.cond)}</span></div>` : ''}
+      <ul class="givens" aria-label="Given">${givens.join('')}</ul>
+
+      <section class="pq" id="pq1">
+        <p class="pq-title">Which one runs out first?</p>
+        <div class="pq-row">
+          <div class="pq-picks" role="group" aria-label="Answer">
+            <button class="btn pq-pick" type="button" data-pick="0"><span>${fmtFormula(q.A.sp)}</span></button>
+            <button class="btn pq-pick" type="button" data-pick="1"><span>${fmtFormula(q.B.sp)}</span></button>
+            <button class="btn pq-pick" type="button" data-pick="tie"><span>Neither</span></button>
+          </div>
+          ${showHint ? '<button class="btn btn--ghost" type="button" data-hint aria-expanded="false" aria-controls="pq-hint">Hint</button>' : ''}
+        </div>
+        <p class="pq-hint" id="pq-hint" hidden>n(${fmtFormula(q.A.sp)}) = ${sig(P.scenario.res.nA)} mol<span class="dotsep">·</span>n(${fmtFormula(q.B.sp)}) = ${sig(P.scenario.res.nB)} mol</p>
+        <div class="pq-feedback" tabindex="-1" aria-live="polite"></div>
+        <div class="pq-pic" hidden></div>
+      </section>
+
+      <section class="pq" id="pq2" hidden>
+        <p class="pq-title">Find the ${TARGET_LABEL[P.target].toLowerCase()} of ${fmtFormula(prod.sp)}.</p>
+        <form class="pq-answer" novalidate>
+          <label class="sr-only" for="pq-input">Answer in ${unit}</label>
+          <input class="num-input" id="pq-input" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="answer">
+          <span class="unit">${unit}</span>
+          <button class="btn btn--primary" type="submit">Check</button>
+        </form>
+        <p class="form-error" id="pq-error" role="alert" hidden>Enter a number.</p>
+        <div class="pq-feedback" tabindex="-1" aria-live="polite"></div>
+        <div class="pq-pic" hidden></div>
+      </section>
+
+      <div class="pq-after" hidden>
+        <button class="btn btn--ghost disclosure" type="button" data-maths aria-expanded="false" aria-controls="pq-maths">Show the maths ${Icons.svg('chevron-down')}</button>
+        <ol class="step-list pq-maths" id="pq-maths" role="list" hidden></ol>
+        <div class="pq-next">
+          <button class="btn btn--primary" type="button" data-next>Next problem →</button>
+          <button class="btn btn--ghost" type="button" data-steps>Work it step by step</button>
+        </div>
+      </div>`;
+  }
+
+  // Q1 — which one runs out first
+  function answerQ1(btn) {
+    const P = practice.P, sec = btn.closest('.pq');
+    const pick = btn.dataset.pick === 'tie' ? 'tie' : Number(btn.dataset.pick);
+    const right = pick === P.limiting;
+    practice.right[0] = right;
+    sec.querySelectorAll('.pq-pick').forEach(b => {
+      const mine = b === btn, answer = String(b.dataset.pick) === String(P.limiting);
+      b.disabled = true;
+      b.classList.toggle('is-right', mine && right);
+      b.classList.toggle('is-wrong', mine && !right);
+      b.classList.toggle('is-answer', !mine && answer);
+    });
+    sec.querySelectorAll('[data-hint], .pq-hint').forEach(el => { el.hidden = true; });
+    const s = solveProblem(P);
+    const fb = sec.querySelector('.pq-feedback');
+    fb.innerHTML = `<p class="fb ${right ? 'fb--ok' : 'fb--no'}">${verdictWord(right)}<span>${P.limiting === 'tie' ? 'Both run out together.' : `${pickLabel(P, P.limiting)} runs out first.`}</span></p>`;
+    mountPicture(sec.querySelector('.pq-pic'), { spec: pictureSpec(s, 'compare', { mark: { pick } }) });
+    const next = document.getElementById('pq2');
+    next.hidden = false;
+    Motion.enter(next);
+    fb.focus();
+  }
+
+  // Q2 — the yield
+  function answerQ2(form) {
+    const P = practice.P, sec = form.closest('.pq'), input = form.querySelector('input');
+    const g = Practice.grade(P, input.value);
+    const err = document.getElementById('pq-error');
+    if (!g.valid) { err.hidden = false; input.setAttribute('aria-invalid', 'true'); input.focus(); return; }
+    err.hidden = true;
+    input.removeAttribute('aria-invalid');
+    input.readOnly = true;
+    input.classList.toggle('is-right', g.ok);
+    input.classList.toggle('is-wrong', !g.ok);
+    form.querySelector('button').hidden = true;
+    practice.right[1] = g.ok;
+    practice.score.total++;
+    if (practice.right[0] && g.ok) practice.score.right++;
+    syncPracticeBar();
+
+    const answer = `<b>${sig(P.expected)} ${P.unitLabel}</b>`;
+    const fb = sec.querySelector('.pq-feedback');
+    fb.innerHTML = `<p class="fb ${g.ok ? 'fb--ok' : 'fb--no'}">${verdictWord(g.ok)}<span>${g.ok ? answer : `Answer: ${answer}`}</span></p>` +
+                   (g.slip ? `<p class="fb-slip">${g.slip}</p>` : '');
+    mountPicture(sec.querySelector('.pq-pic'), finalPicture(P));
+    const after = practiceBody.querySelector('.pq-after');
+    after.hidden = false;
+    Motion.enter(after);
+    fb.focus();
+  }
+
+  // "Show the maths": every step at once, typed in the first time it opens
+  function toggleMaths(btn) {
+    const host = document.getElementById('pq-maths');
+    const open = host.hidden;
+    host.hidden = !open;
+    btn.setAttribute('aria-expanded', String(open));
+    btn.innerHTML = `${open ? 'Hide the maths' : 'Show the maths'} ${Icons.svg(open ? 'chevron-up' : 'chevron-down')}`;
+    if (open && !host.children.length) {
+      let t = 0;
+      stepsFor(practice.P).forEach((st, i) => { t = addBlock(host, st, i, { instant: false, pictures: false, delay: t, gap: 90 }).end; });
+    }
+  }
+
+  // "Work it step by step": this problem, as given, in the normal flow
+  function loadProblem(P) {
+    state.mode = 'learn';
+    state.sel = P.q.id;
+    state.target = P.target; state.prodIdx = P.prodIdx; state.unit = P.unit; state.gasCond = P.cond;
+    state.inA = Object.assign(freshInput(), P.inA); state.inB = Object.assign(freshInput(), P.inB);
+    state.known = Object.assign({ actual: '', percent: '' }, P.known);
+    beginWorking();
+  }
+
+  practiceBody.addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if (!b || !practice.P) return;
+    if (b.classList.contains('pq-pick')) answerQ1(b);
+    else if (b.hasAttribute('data-hint')) {
+      const hint = document.getElementById('pq-hint');
+      hint.hidden = !hint.hidden;
+      b.setAttribute('aria-expanded', String(!hint.hidden));
+    } else if (b.hasAttribute('data-maths')) toggleMaths(b);
+    else if (b.hasAttribute('data-next')) { newProblem(); focusProblem(true); }
+    else if (b.hasAttribute('data-steps')) loadProblem(practice.P);
+  });
+  practiceBody.addEventListener('submit', e => {
+    e.preventDefault();
+    if (practice.P) answerQ2(e.target);
+  });
+  // the old problem's buttons are gone: keyboard focus goes to the new problem
+  function focusProblem(scroll) {
+    practiceBody.focus({ preventScroll: true });
+    if (scroll) Motion.scrollIntoView(cards.practice, 'start');
+  }
+
+  document.querySelectorAll('#practice-level button').forEach(b => b.addEventListener('click', () => {
+    if (!LEVELS.includes(b.dataset.level) || b.dataset.level === practice.level) return;
+    practice.level = b.dataset.level;
+    newProblem();
+    focusProblem();
+  }));
+  document.getElementById('practice-new').addEventListener('click', () => { newProblem(); focusProblem(); });
+
   /* ---------------- boot ---------------- */
   renderCatalog();
+  syncPracticeBar();
   playLandingEntrance();
 })();

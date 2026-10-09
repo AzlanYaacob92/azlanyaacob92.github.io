@@ -1,8 +1,9 @@
 /* ============================================================================
    chemistry.js  —  domain layer (no DOM)
    Owns: relative atomic masses, the reaction database, reaction categories,
-   formula notation, molar-mass calculation, the limiting-reactant maths, and
-   the yield maths (theoretical / actual / percentage).
+   formula notation, molar-mass calculation, amounts → moles, the
+   limiting-reactant maths, and the yield maths (theoretical / actual /
+   percentage).
    Shared with Stoichiomathics, which uses the same reaction database and
    limiting-reactant engine; this copy adds the product list to each QUAL
    entry (yield questions are always *about* a product) and the yield block
@@ -214,7 +215,7 @@ const SPECT = new Set(['H^+','OH^-','e^-']);
    These are the rounded data-booklet values used in SK015 / A-level, not
    values recomputed from the ideal gas equation. Note 24.0 goes with 20 °C:
    at 25 °C the molar volume is 24.5 dm³ mol⁻¹. If your syllabus defines RTP
-   as 25 °C, change the value here and the footer note in index.html together. */
+   as 25 °C, change the value here and the RTP label in app.js together. */
 const MOLAR_VOL = { RTP:24.0, STP:22.4 };
 // Split a token into {coef, sp}, e.g. "2HCl" -> {coef:2, sp:"HCl"}.
 function splitToken(tok){
@@ -644,6 +645,29 @@ R.filter(r=>!r.skip).forEach(r=>{
 });
 QUAL.forEach((q,i)=>q.id=i);
 
+/* ---- Amounts → moles -------------------------------------------------------
+   `inp` is one reactant's amount exactly as the wizard (or a Practice problem)
+   holds it — strings, as typed:
+     { method:'mass'|'mol'|'conc'|'gas', mass, mol, conc, cvol, cvolUnit, gvol, gvolUnit, cond }
+   Returns NaN unless the amount is a positive number. */
+function molesOf(inp, sp){
+  if(inp.method === 'mass'){ const m=parseFloat(inp.mass), M=molarMass(sp); return (m>0) ? m/M : NaN; }
+  if(inp.method === 'mol'){ const n=parseFloat(inp.mol); return (n>0) ? n : NaN; }
+  if(inp.method === 'conc'){
+    const c=parseFloat(inp.conc); let V=parseFloat(inp.cvol);
+    if(!(c>0) || !(V>0)) return NaN;
+    if(inp.cvolUnit === 'cm3') V/=1000;
+    return c*V;
+  }
+  if(inp.method === 'gas'){
+    let V=parseFloat(inp.gvol);
+    if(!(V>0)) return NaN;
+    if(inp.gvolUnit === 'cm3') V/=1000;
+    return V/MOLAR_VOL[inp.cond];
+  }
+  return NaN;
+}
+
 /* ---- Limiting-reactant maths (pure — returns raw numbers, no DOM) --------
    For aA + bB -> …, the amount of B needed to use up all of A is n(A)·b/a.
    Compare n/coefficient for each reactant; the smaller one is limiting.      */
@@ -659,53 +683,6 @@ function computeLimiting(q, nA, nB){
   else if(ratioA<ratioB){ limiting=A; excess=B; leftMol=nB-nBneed;   leftMass=leftMol*MB; }
   else                  { limiting=B; excess=A; leftMol=nA-nB*(a/b); leftMass=leftMol*MA; }
   return {A,B,a,b,MA,MB,nA,nB,nBneed,ratioA,ratioB,tie,enough,limiting,excess,leftMol,leftMass};
-}
-
-/* ---- Pivot reframing ------------------------------------------------------
-   The physics (which reactant is actually limiting) never depends on which
-   one a student chooses to test first — computeLimiting() above is already
-   symmetric. pivotView() just re-expresses the same result from whichever
-   side ("A" or "B") the student picked to "use up first": P is the one
-   assumed fully consumed, Q is the one being checked for enough supply.
-   pv.enough === true  means the assumption held: P really is limiting.
-   pv.enough === false means it didn't: Q actually runs out first, so Q is
-   limiting and P is left in excess instead. Either way res.limiting /
-   res.excess (from computeLimiting) remain the ground truth — pivotView
-   never overrides them, it just reframes the working around the choice. */
-function pivotView(res, pivot){
-  const useA = pivot !== 'B';
-  const P = useA ? res.A : res.B, Q = useA ? res.B : res.A;
-  const nP = useA ? res.nA : res.nB, nQ = useA ? res.nB : res.nA;
-  const pCoef = useA ? res.a : res.b, qCoef = useA ? res.b : res.a;
-  const MP = useA ? res.MA : res.MB, MQ = useA ? res.MB : res.MA;
-  const nQneed = nP*(qCoef/pCoef);
-  const tol = 1e-9*Math.max(nP/pCoef, nQ/qCoef, 1e-30);
-  const enough = res.tie ? true : (nQ >= nQneed - tol);
-  return {P,Q,nP,nQ,pCoef,qCoef,MP,MQ,nQneed,enough,tie:res.tie,pivot:useA?'A':'B'};
-}
-
-/* ---- Direct mol comparison ------------------------------------------------
-   An alternative to pivotView's "assume one runs out first, check the other"
-   framing: instead, scale the actual moles so the reactant with the SMALLER
-   stoichiometric coefficient exactly matches that coefficient, then read the
-   other reactant's scaled amount straight off against ITS coefficient — no
-   assumption to test, just a direct side-by-side ratio comparison. Always
-   normalises to the smaller-coefficient side, so which one is S vs O is
-   fixed by the equation, not by student choice. Mathematically it reaches
-   the same res.limiting/res.excess as pivotView — just a different lens. */
-function ratioCompareView(res){
-  const aSmaller = res.a <= res.b;
-  const S = aSmaller ? res.A : res.B, O = aSmaller ? res.B : res.A;
-  const nS = aSmaller ? res.nA : res.nB, nO = aSmaller ? res.nB : res.nA;
-  const sCoef = aSmaller ? res.a : res.b, oCoef = aSmaller ? res.b : res.a;
-  const MS = aSmaller ? res.MA : res.MB, MO = aSmaller ? res.MB : res.MA;
-  const k = sCoef/nS;              // scale factor bringing S's actual moles to exactly sCoef
-  const oScaled = nO*k;            // O's actual moles under that same scale factor
-  const tol = 1e-9*Math.max(sCoef, oCoef, 1e-30);
-  const tie = Math.abs(oScaled-oCoef) <= tol;
-  // oScaled < oCoef -> O is limiting (falls short once scaled to match S)
-  // oScaled > oCoef -> S is limiting (O has more than its scaled share)
-  return {S,O,nS,nO,sCoef,oCoef,MS,MO,k,oScaled,tie};
 }
 
 /* ---- Yield maths ----------------------------------------------------------
@@ -774,11 +751,23 @@ function solveYield(res, prod, target, unit, cond, known){
            unitLabel: UNIT_LABEL[unit], target };
 }
 
+/* One whole yield problem, solved. `p` is what the wizard asks for, or a
+   Practice problem: { q, prodIdx, target, unit, cond, inA, inB, known } with
+   `inA`/`inB` as for molesOf() and `known` = { actual, percent } as typed.
+   Learn, Verify, the verdict and Practice all read their numbers from here. */
+function solveProblem(p){
+  const q = p.q, idx = Math.min(p.prodIdx || 0, q.products.length - 1), prod = q.products[idx];
+  const res = computeLimiting(q, molesOf(p.inA, q.A.sp), molesOf(p.inB, q.B.sp));
+  const known = { actual: parseFloat(p.known.actual), percent: parseFloat(p.known.percent) };
+  const y = solveYield(res, prod, p.target, p.unit, p.cond, known);
+  return { q, prod, idx, res, y };
+}
+
 /* In the browser these are already globals, loaded before app.js. This block
    exists only so test-chemistry.js can require the engine under Node. */
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = { AM, MOLAR_VOL, SPECT, R, QUAL, composition, molarMass, massParts,
                      isRecognisedFormula, smartFormulaCandidates, parseReaction,
-                     computeLimiting, pivotView, ratioCompareView,
-                     theoreticalMoles, molesToAmount, amountToMoles, solveYield, UNIT_LABEL };
+                     molesOf, computeLimiting, theoreticalMoles, molesToAmount, amountToMoles,
+                     solveYield, solveProblem, UNIT_LABEL };
 }
