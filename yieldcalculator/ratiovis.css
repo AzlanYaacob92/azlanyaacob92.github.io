@@ -197,6 +197,16 @@
   .rv-cols { column-gap: var(--sp-4); }
 }
 
+/* ---------- the working: how moles become balls ---------- */
+.rv-work { margin-top: var(--sp-3); padding-top: var(--sp-3); border-top: 1px dashed var(--line-strong); font-size: .9375rem; line-height: 1.5; color: var(--ink); }
+.rv-work__h { margin: 0 0 var(--sp-2); font: var(--t-label); text-transform: uppercase; letter-spacing: var(--tr-label); color: var(--muted); }
+.rv-work p { margin: 0 0 var(--sp-2); max-width: none; }
+.rv-work ol, .rv-work ul { margin: 0; padding-left: 1.3em; }
+.rv-work ul { margin: 2px 0 0; list-style: none; padding-left: .2em; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.rv-work li { margin-bottom: 4px; }
+.rv-work li::marker { color: var(--primary); font-weight: var(--w-semi); }
+.rv-work sub, .rv-work sup { font-size: .66em; }
+
 /* ---------- the ELI5 button (top right of the picture) and its dialogue ---------- */
 .rv-top { display: flex; justify-content: flex-end; margin: calc(var(--sp-1) * -1) 0 var(--sp-2); }
 .rv-help {
