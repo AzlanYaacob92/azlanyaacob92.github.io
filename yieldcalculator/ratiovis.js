@@ -409,6 +409,66 @@
     return `<div class="rv-fit" role="group" aria-label="Fit to"><span class="rv-fit__lab" aria-hidden="true">Fit to</span><span class="rv-seg">${btn(0)}${btn(1)}</span></div>`;
   }
 
+
+  /* ---- ELI5: the "explain it like I'm 5" dialogue ------------------------------------
+     eli5(m, s, fmt) -> { title, html }: plain-language steps for the view on screen, with the
+     picture's own numbers filled in. html is built from static text and the app's formula
+     markup only. The dialogue itself is made by openHelp() when the learner presses the "i". */
+  const SYM = { ghost: '<span class="rv-key rv-key--ghost" aria-hidden="true"></span>', solid: '<span class="rv-key rv-key--solid" aria-hidden="true"></span>',
+                dash: '<span class="rv-key rv-key--dash" aria-hidden="true"></span>' };
+  function eli5(m, s, fmt) {
+    const f = s.reactants.map((r, i) => nw(formula(r, i ? 'B' : 'A'))), g = m.groups;
+    const li = m.tie ? -1 : m.limiting, ex = li === 0 ? 1 : 0;
+    const P = t => '<p>' + t + '</p>';
+    const L = items => '<ul>' + items.map(t => '<li>' + t + '</li>').join('') + '</ul>';
+    const H = t => '<h4>' + t + '</h4>';
+    const recipe = P(`Think of the equation as a <b>recipe</b>. It says: for every <b>${fmt(g[0].need)}</b> of ${f[0]} you need <b>${fmt(g[1].need)}</b> of ${f[1]}.`);
+    const scale = P(`Moles are hard to compare, so we turn them into <b>balls</b> that all use the same size. Here <b>1 ball = ${nw(fmt(m.k) + ' mol')}</b>.`);
+    const sandwich = P(`<b>Sandwich idea:</b> 2 slices of bread + 1 slice of cheese make 1 sandwich. With 10 slices of bread but only 3 slices of cheese, the cheese runs out first, so the cheese <i>limits</i> how many sandwiches you can make. The bread that is left over just sits there.`);
+    let title, body;
+    if (m.view === 'need') {
+      title = 'What the equation needs';
+      body = recipe + L([`${SYM.ghost} An <b>empty (outlined) ball</b> is one serving the recipe asks for.`,
+        `The ratio <b>${nw(g.map(x => fmt(x.need)).join(' : '))}</b> is the shopping list. Nothing has been used yet.`]) +
+        P('<b>Remember:</b> the balanced equation tells you the <i>ratio</i>, not how much you actually have.');
+    } else if (m.view === 'have') {
+      title = 'What you really have';
+      body = P(`Now count what is in your hands. You have <b>${nw(fmt(g[0].moles) + ' mol')}</b> of ${f[0]} and <b>${nw(fmt(g[1].moles) + ' mol')}</b> of ${f[1]}.`) + scale +
+        L([`${SYM.solid} A <b>solid ball</b> is what you have. A part-filled ball is part of a serving.`,
+           `${SYM.ghost} The empty balls are the recipe, for you to compare against.`]) +
+        P(`You have <b>${nw(g.map(x => fmt(x.balls)).join(' : '))}</b> balls, and the recipe wants <b>${nw(g.map(x => fmt(x.need)).join(' : '))}</b>.`) +
+        P('<b>Remember:</b> same-size balls let you compare two different substances fairly.');
+    } else if (m.view === 'compare') {
+      title = 'Which one runs out first?';
+      const verdict = m.tie ? P(`Here both match the recipe exactly, so <b>neither</b> runs out first. Everything gets used up.`)
+        : P(`Here ${f[li]} has <b>fewer balls than the recipe wants</b>, so it runs out first. That makes ${f[li]} the <b>limiting reactant</b>.`);
+      body = P('Put what you <b>need</b> next to what you <b>have</b>, one reactant at a time.') + scale +
+        L([`${SYM.dash} A <b>dashed ball</b> is missing (tag <i>short</i>) or not needed (tag <i>extra</i>).`,
+           'A tick <b>✓</b> means exactly enough.',
+           'The reactant that is <b>short</b> is the one that runs out first.']) + verdict + sandwich;
+    } else if (m.view === 'leftover') {
+      title = 'What is left over?';
+      body = P('The limiting reactant gets <b>completely used up</b>. The other reactant only uses as many balls as the recipe allows.') +
+        (m.tie ? P('Here both are used up, so there is <b>nothing left over</b>.')
+          : P(`${f[li]} is all used. ${f[ex]} has <b>${fmt(g[ex].extraBalls)}</b> ball${g[ex].extraBalls === 1 ? '' : 's'} that never get used. That is <b>${nw(fmt(g[ex].extraMoles) + ' mol')}</b> left over.`)) +
+        L([`${SYM.solid} <b>Solid balls</b> are used in the reaction.`, `${SYM.dash} <b>Dashed balls</b> tagged <i>left over</i> are what is still in the flask.`]) +
+        P('<b>Remember:</b> the limiting reactant decides how much reacts; the other one is the leftover.');
+    } else {
+      const pr = m.product, pf = pr && pr.fill !== null;
+      title = 'How much product do we get?';
+      body = P(`When the limiting reactant is fully used, the recipe tells us how many product balls we <i>could</i> make. That is the <b>theoretical yield</b>: <b>${fmt(pr.balls)}</b> ball${pr.balls === 1 ? '' : 's'} (${nw(fmt(pr.moles) + ' mol')}).`) +
+        L([`${SYM.ghost} <b>Outlined balls</b> = the most you could ever make (theoretical).`,
+           `${SYM.solid} <b>Solid balls</b> = what you really got (actual).`]) +
+        (pf ? P(`Here you got <b>${nw(pr.over ? 'more than 100 %' : fmt(pr.fill * 100) + ' %')}</b> of the possible product. That is the <b>percent yield</b>.`) : '') +
+        P('<b>Percent yield = actual ÷ theoretical × 100.</b> Real life loses a little product (spills, side reactions), so the actual yield is usually less than 100 %.') +
+        P('<b>Remember:</b> theoretical = the best case on paper; actual = what the flask really gave you.');
+    }
+    return { title, html: body };
+  }
+
+  const HELP_BTN = '<button type="button" class="rv-help" data-rv-help aria-haspopup="dialog">' +
+    '<span class="rv-help__i" aria-hidden="true">i</span><span class="rv-help__t">ELI5</span><span class="rv-sr"> Explain this picture simply</span></button>';
+
   function render(s, m, o) {
     const fmt = x => num(x, o.sf);                                    // every number in the picture, to o.sf figures
     const cols = plan(m, s, fmt);
@@ -434,7 +494,7 @@
     const live = withFit ? '<span class="rv-live" aria-live="polite"></span>' : '';
     const pic = `<div class="rv-pic" role="img" aria-label="${esc(sentence(m, s, withScale, fmt))}" style="--rv-max:${maxCols}">` +
       pick + `<div class="rv-cols">${cols.map(col => colHtml(col, marks, fmt)).join('')}</div>` + sum + `</div>`;
-    return `<div class="rv rv--${o.size} rv--${m.view}" data-rv-view="${m.view}" data-rv-anchor="${m.anchor}" data-rv-limiting="${m.limiting}">${pic}${bar}${live}</div>`;
+    return `<div class="rv rv--${o.size} rv--${m.view}" data-rv-view="${m.view}" data-rv-anchor="${m.anchor}" data-rv-limiting="${m.limiting}"><div class="rv-top">${HELP_BTN}</div>${pic}${bar}${live}</div>`;
   }
 
   function options(opts) {
@@ -481,6 +541,40 @@
     } catch (e) { /* the picture is already in place; motion is a nicety */ }
   }
 
+
+  /* ---- the ELI5 dialogue: one <dialog> for the page, filled on demand ------------------ */
+  let helpDlg = null;
+  function openHelp(opener, s, anchor, o) {
+    if (typeof document === 'undefined') return;
+    let content;
+    try { const s2 = {}; Object.keys(s).forEach(k => { s2[k] = s[k]; }); s2.anchor = anchor; content = eli5(build(s2), s2, x => num(x, o.sf)); } catch (e) { return; }
+    if (!helpDlg) {
+      helpDlg = document.createElement('dialog');
+      helpDlg.className = 'rv-dialog';
+      helpDlg.setAttribute('aria-labelledby', 'rv-dlg-title');
+      helpDlg.innerHTML = '<div class="rv-dialog__card"><div class="rv-dialog__head"><div><span class="rv-dialog__eyebrow">Explain it like I\'m 5</span>' +
+        '<h3 id="rv-dlg-title" class="rv-dialog__title"></h3></div>' +
+        '<button type="button" class="rv-dialog__x" data-rv-close aria-label="Close">' + ICON.cross + '</button></div>' +
+        '<div class="rv-dialog__body"></div>' +
+        '<div class="rv-dialog__foot"><button type="button" class="btn btn--primary rv-dialog__ok" data-rv-close>Got it</button></div></div>';
+      helpDlg.addEventListener('click', ev => {
+        const t = ev.target;
+        if (t === helpDlg || (t.closest && t.closest('[data-rv-close]'))) closeHelp();     // the backdrop or a close button
+      });
+      helpDlg.addEventListener('close', () => { const b = helpDlg._opener; helpDlg._opener = null; if (b && b.focus) try { b.focus(); } catch (e) { /* gone */ } });
+      document.body.appendChild(helpDlg);
+    }
+    helpDlg.querySelector('.rv-dialog__title').textContent = content.title;
+    helpDlg.querySelector('.rv-dialog__body').innerHTML = content.html;
+    helpDlg._opener = opener;
+    if (typeof helpDlg.showModal === 'function') { if (!helpDlg.open) helpDlg.showModal(); } else helpDlg.setAttribute('open', '');
+    const ok = helpDlg.querySelector('.rv-dialog__ok'); if (ok && ok.focus) ok.focus();
+  }
+  function closeHelp() {
+    if (!helpDlg) return;
+    if (typeof helpDlg.close === 'function') helpDlg.close(); else { helpDlg.removeAttribute('open'); helpDlg.dispatchEvent(new Event('close')); }
+  }
+
   function mount(el, spec, opts) {
     if (!el) return null;
     const o = options(opts);
@@ -491,20 +585,23 @@
     }
     el.innerHTML = render(s, m, o);
     if (wired && wired.has(el)) { el.removeEventListener('click', wired.get(el)); wired.delete(el); }
-    if (o.fitControl && (m.view === 'have' || m.view === 'compare')) {
-      let current = m.anchor;
-      const onClick = ev => {
-        const t = ev.target && ev.target.closest ? ev.target.closest('[data-rv-fit]') : null;
-        if (!t || !el.contains(t)) return;
-        const i = Number(t.getAttribute('data-rv-fit'));
-        if (i === current) return;
-        current = i;
-        const next = refit(el, s, i, o);
-        if (typeof o.onFit === 'function') o.onFit(i, next);
-      };
-      el.addEventListener('click', onClick);
-      if (wired) wired.set(el, onClick);
-    }
+    const canFit = o.fitControl && (m.view === 'have' || m.view === 'compare');
+    let current = m.anchor;
+    const onClick = ev => {
+      const tg = ev.target && ev.target.closest ? ev.target : null;
+      if (!tg) return;
+      const h = tg.closest('[data-rv-help]');
+      if (h && el.contains(h)) { openHelp(h, s, current, o); return; }
+      const t = canFit ? tg.closest('[data-rv-fit]') : null;
+      if (!t || !el.contains(t)) return;
+      const i = Number(t.getAttribute('data-rv-fit'));
+      if (i === current) return;
+      current = i;
+      const next = refit(el, s, i, o);
+      if (typeof o.onFit === 'function') o.onFit(i, next);
+    };
+    el.addEventListener('click', onClick);
+    if (wired) wired.set(el, onClick);
     if (o.animate) play(el, o.delay);
     return m;
   }
@@ -528,7 +625,15 @@
     return m;
   }
 
-  const api = { model, html, mount, describe };
+  // the ELI5 text for a spec, pure like model(): { title, html } ('' title and html for an invalid spec)
+  function explain(spec, opts) {
+    let s, m;
+    try { s = normalise(spec); m = build(s); } catch (e) { if (isInputError(e)) return { title: '', html: '' }; throw e; }
+    const o = options(opts);
+    return eli5(m, s, x => num(x, o.sf));
+  }
+
+  const api = { model, html, mount, describe, explain };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (root) root.RatioVis = api;
 })(typeof window !== 'undefined' ? window : null);

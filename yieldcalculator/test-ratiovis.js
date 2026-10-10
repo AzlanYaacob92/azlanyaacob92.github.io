@@ -411,9 +411,24 @@ console.log('\n--- mount (stub element, no DOM) ---');
   RatioVis.mount(el, A2B(0.15, 0.6), { fitControl: true });
   check('mounting again does not stack listeners', listeners.length, 1);
   RatioVis.mount(el, A2B(0.15, 0.6), {});
-  check('mounting without a fit control removes the listener', listeners.length, 0);
+  check('mounting without a fit control keeps only the one ELI5 listener', listeners.length, 1);
   check('no Motion, no problem (animate defaults to true)', (() => { try { RatioVis.mount(el, A2B(0.15, 0.6)); return true; } catch (e) { return e.message; } })(), true);
 }
+/* ---- ELI5 explainer ----------------------------------------------------------------------------------------- */
+console.log('\n--- ELI5 explainer ---');
+{
+  ['need', 'have', 'compare', 'leftover', 'product'].forEach(view => {
+    const spec = Object.assign({}, A2B(0.15, 0.6), { view, products: [{ html: 'C', coef: 1 }] });
+    const out = RatioVis.explain(spec);
+    truthy('explain ' + view + ': has a title and body', out.title.length > 0 && out.html.length > 50);
+    truthy('explain ' + view + ': the picture carries the ELI5 button', /data-rv-help/.test(RatioVis.html(spec)));
+  });
+  truthy('compare names the limiting reactant', /limiting reactant/.test(RatioVis.explain(Object.assign({}, A2B(0.15, 0.6), { view: 'compare' })).html));
+  truthy('a tie says neither runs out', /neither/.test(RatioVis.explain(Object.assign({}, A2B(0.3, 0.6), { view: 'compare' })).html));
+  truthy('product with fill states the percent yield', /62 %/.test(RatioVis.explain(Object.assign({}, A2B(0.3, 0.6), { view: 'product', products: [{ html: 'C', coef: 1 }], fill: 0.62 })).html));
+  check('explain on an invalid spec is empty', RatioVis.explain({}).html, '');
+}
+
 
 console.log(`\n${total} checks, ${fail ? fail + ' failure(s)' : 'all passed'}`);
 process.exit(fail ? 1 : 0);
