@@ -78,6 +78,7 @@
      onFit: (index, model) => {}, // mount() only: after the learner re-fits; index 0 | 1, model = RatioVis.model of the new picture
      animate: true,       // mount() only: play the entrance (needs window.Motion)
      delay: 0,            // mount() only: ms to wait before the entrance (mount inside Motion.swap's update, delay ~ 300)
+     working: false,      // views 'have', 'compare': show how moles become balls (1 ball = n ÷ coefficient; balls = n ÷ 1 ball), updated by the fit control
      size: 'md' | 'sm',   // 'sm' = smaller balls and type (default 'md')
      sf: 3                // significant figures for every number in the picture, 1..8 (match the app's sig(x, n))
    }
@@ -423,7 +424,7 @@
     const L = items => '<ul>' + items.map(t => '<li>' + t + '</li>').join('') + '</ul>';
     const H = t => '<h4>' + t + '</h4>';
     const recipe = P(`Think of the equation as a <b>recipe</b>. It says: for every <b>${fmt(g[0].need)}</b> of ${f[0]} you need <b>${fmt(g[1].need)}</b> of ${f[1]}.`);
-    const scale = P(`Moles are hard to compare, so we turn them into <b>balls</b> that all use the same size. Here <b>1 ball = ${nw(fmt(m.k) + ' mol')}</b>.`);
+    const scale = P(`Moles are hard to compare, so we turn them into <b>balls</b> that all use the same size. Here <b>1 ball = ${nw(fmt(m.k) + ' mol')}</b>. We find it by dividing one reactant's moles by its coefficient (the amount in one batch of the recipe). Then <b>balls = moles ÷ size of 1 ball</b>.`);
     const sandwich = P(`<b>Sandwich idea:</b> 2 slices of bread + 1 slice of cheese make 1 sandwich. With 10 slices of bread but only 3 slices of cheese, the cheese runs out first, so the cheese <i>limits</i> how many sandwiches you can make. The bread that is left over just sits there.`);
     let title, body;
     if (m.view === 'need') {
@@ -469,6 +470,20 @@
   const HELP_BTN = '<button type="button" class="rv-help" data-rv-help aria-haspopup="dialog">' +
     '<span class="rv-help__i" aria-hidden="true">i</span><span class="rv-help__t">ELI5</span><span class="rv-sr"> Explain this picture simply</span></button>';
 
+  /* "How moles become balls", written out: why we divide by the coefficient, then each reactant's balls.
+     Shown for views 'have' and 'compare' when opts.working is set. */
+  function workHtml(m, s, fmt) {
+    const a = m.anchor, ga = m.groups[a], fa = nw(formula(s.reactants[a], a ? 'B' : 'A'));
+    const lines = m.groups.map(g => {
+      const f = nw(formula(s.reactants[g.index], g.index ? 'B' : 'A'));
+      return `<li>${f}: ${nw(fmt(g.moles) + ' mol')} ÷ ${nw(fmt(m.k) + ' mol')} = <b>${nw(fmt(g.balls) + (g.balls === 1 ? ' ball' : ' balls'))}</b></li>`;
+    }).join('');
+    return `<div class="rv-work"><p class="rv-work__h">How moles become balls</p>` +
+      `<p class="rv-work__p"><b>Why divide?</b> The equation uses <b>${fmt(ga.coef)}</b> ${fa} in one batch of the reaction, so n ÷ ${fmt(ga.coef)} is the amount in <i>one</i> batch. We call that <b>1 ball</b>.</p>` +
+      `<ol class="rv-work__l"><li><b>Size of 1 ball:</b> n(${fa}) ÷ ${fmt(ga.coef)} = ${nw(fmt(ga.moles) + ' mol')} ÷ ${fmt(ga.coef)} = <b>${nw(fmt(m.k) + ' mol')}</b></li>` +
+      `<li><b>Balls you have:</b> moles ÷ size of 1 ball<ul>${lines}</ul></li></ol></div>`;
+  }
+
   function render(s, m, o) {
     const fmt = x => num(x, o.sf);                                    // every number in the picture, to o.sf figures
     const cols = plan(m, s, fmt);
@@ -491,15 +506,16 @@
     const withScale = s.scale && m.view !== 'need';
     const withFit = o.fitControl && (m.view === 'have' || m.view === 'compare');
     const bar = withScale || withFit ? `<div class="rv-bar">${withScale ? scaleHtml(m, fmt) : ''}${withFit ? fitHtml(m, s) : ''}</div>` : '';
+    const withWork = o.working && (m.view === 'have' || m.view === 'compare');
     const live = withFit ? '<span class="rv-live" aria-live="polite"></span>' : '';
     const pic = `<div class="rv-pic" role="img" aria-label="${esc(sentence(m, s, withScale, fmt))}" style="--rv-max:${maxCols}">` +
       pick + `<div class="rv-cols">${cols.map(col => colHtml(col, marks, fmt)).join('')}</div>` + sum + `</div>`;
-    return `<div class="rv rv--${o.size} rv--${m.view}" data-rv-view="${m.view}" data-rv-anchor="${m.anchor}" data-rv-limiting="${m.limiting}"><div class="rv-top">${HELP_BTN}</div>${pic}${bar}${live}</div>`;
+    return `<div class="rv rv--${o.size} rv--${m.view}" data-rv-view="${m.view}" data-rv-anchor="${m.anchor}" data-rv-limiting="${m.limiting}"><div class="rv-top">${HELP_BTN}</div>${pic}${bar}${withWork ? workHtml(m, s, fmt) : ''}${live}</div>`;
   }
 
   function options(opts) {
     opts = opts || {};
-    return { fitControl: !!opts.fitControl, onFit: opts.onFit, animate: opts.animate !== false, size: opts.size === 'sm' ? 'sm' : 'md',
+    return { fitControl: !!opts.fitControl, working: !!opts.working, onFit: opts.onFit, animate: opts.animate !== false, size: opts.size === 'sm' ? 'sm' : 'md',
              sf: Number.isInteger(opts.sf) && opts.sf >= 1 && opts.sf <= 8 ? opts.sf : 3,
              delay: typeof opts.delay === 'number' && opts.delay > 0 && isFinite(opts.delay) ? opts.delay : 0 };
   }
@@ -617,6 +633,8 @@
     if (!fresh || !rv) return m;
     const pic = rv.querySelector('.rv-pic'), scale = rv.querySelector('.rv-scale');
     if (pic) pic.replaceWith(fresh.querySelector('.rv-pic'));
+    const work = rv.querySelector('.rv-work');
+    if (work && fresh.querySelector('.rv-work')) work.replaceWith(fresh.querySelector('.rv-work'));
     if (scale && fresh.querySelector('.rv-scale')) scale.replaceWith(fresh.querySelector('.rv-scale'));
     ['data-rv-anchor', 'data-rv-limiting'].forEach(a => rv.setAttribute(a, fresh.getAttribute(a)));
     rv.querySelectorAll('[data-rv-fit]').forEach(b => b.setAttribute('aria-pressed', String(Number(b.getAttribute('data-rv-fit')) === m.anchor)));

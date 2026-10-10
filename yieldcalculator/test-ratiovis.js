@@ -414,6 +414,17 @@ console.log('\n--- mount (stub element, no DOM) ---');
   check('mounting without a fit control keeps only the one ELI5 listener', listeners.length, 1);
   check('no Motion, no problem (animate defaults to true)', (() => { try { RatioVis.mount(el, A2B(0.15, 0.6)); return true; } catch (e) { return e.message; } })(), true);
 }
+/* ---- working: how moles become balls --------------------------------------------------------------------- */
+console.log('\n--- working ---');
+{
+  const spec = A2B(0.15, 0.6);
+  const h = RatioVis.html(spec, { working: true });
+  truthy('working block is drawn when asked', /class="rv-work"/.test(h) && /Why divide/.test(h));
+  truthy('it shows the size of 1 ball and each reactant\'s division', /0\.3 mol/.test(h) && /0\.15 mol<\/span> ÷ <span class="rv-nw">0\.3 mol/.test(h));
+  truthy('not drawn by default', !/rv-work/.test(RatioVis.html(spec)));
+  truthy('not drawn for the need view', !/rv-work/.test(RatioVis.html(Object.assign({}, spec, { view: 'need' }), { working: true })));
+}
+
 /* ---- ELI5 explainer ----------------------------------------------------------------------------------------- */
 console.log('\n--- ELI5 explainer ---');
 {

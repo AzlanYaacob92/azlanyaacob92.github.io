@@ -882,8 +882,8 @@
     const batch = (f, n, c) => `n(${f}) ÷ ${c} = ${sig(n / c)} mol`;
     steps.push({
       instruction: 'Which one runs out first?',
-      math: `${batch(fA, res.nA, res.a)}<br>${batch(fB, res.nB, res.b)}<br>` + (res.tie ? 'Both run out together.' : `${fL} runs out first.`),
-      picture: { spec: pictureSpec(s, 'compare'), opts: { fitControl: true } }
+      math: `Divide each amount by its coefficient: one batch of the equation uses that many.<br>${batch(fA, res.nA, res.a)}<br>${batch(fB, res.nB, res.b)}<br>Smaller answer = runs out first.<br>` + (res.tie ? 'Both run out together.' : `${fL} runs out first.`),
+      picture: { spec: pictureSpec(s, 'compare'), opts: { fitControl: true, working: true } }
     });
 
     // 3 — moles of product, from the one that runs out (on a tie either gives the same)
